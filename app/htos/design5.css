@@ -1,0 +1,76 @@
+/* Owner-approved Design 5 appearance applied to existing app components.
+   No layout, visibility, ordering, quantity, breakpoint or interaction overrides.
+   Screen-only so existing PDFs and printed checklists retain their presentation. */
+@media screen {
+  :root {
+    --forest: #243b22;
+    --green: #3c5d35;
+    --muted: #596852;
+    --line: #dce2d3;
+    --bg: #f6f6f0;
+    --canvas: #f6f6f0;
+    --surface: #fff;
+    --ht-paper: #fcfcf8;
+    --ht-leaf: #e6ecd8;
+    --ht-ink: #243521;
+  }
+  body { background: var(--bg); color: var(--ht-ink); }
+  .h-app .h-sidebar { background: #243b22; }
+  .h-app .h-sidebar nav a { color: #e0e7d7; border-radius: 8px; }
+  .h-app .h-sidebar nav a:hover { background: #354d30; color: #fff; }
+  .h-app .h-sidebar nav a.active { background: #e6ecd8; color: #243b22; box-shadow: none; border-color: #e6ecd8; }
+  .h-app .h-account { border-color: #4b6143; }
+  .h-app .h-sidebar .h-workspace-label,
+  .h-app .h-account small,.h-app .h-signout,
+  .h-app .h-sidebar-bottom>.h-app-version { color: #d3ddc6; }
+  .h-app .h-rail-toggle { border-color: #58704d; color: #e0e7d7; border-radius: 8px; }
+  .h-app .h-topbar { background: #fcfcf8; border-color: var(--line); }
+  .h-app .h-heading h1,.h-app .h-order-list-heading h1 {
+    font-weight: 600; letter-spacing: -.025em; color: var(--forest);
+  }
+  .h-app .h-heading p,.h-app .h-panel-head p { color: var(--muted); }
+  .h-app .h-panel,.h-app .h-incoming-card {
+    border-color: var(--line); border-radius: 10px; box-shadow: none;
+  }
+  .h-app .h-panel-head,.h-app .h-panel-foot { border-color: var(--line); }
+  .h-app .h-panel-head h2 { font-weight: 600; letter-spacing: -.015em; }
+  .h-app .h-metric { border-color: var(--line); border-top-color: #a8bc92; box-shadow: none; border-radius: 10px; }
+  .h-app .h-metric>strong { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .h-app .h-activity-entry,.h-app .h-radar>a { border-color: var(--line); }
+  .h-app .h-activity-entry:hover,.h-app .h-radar>a:hover { background: #f3f6ec; }
+  .h-app .h-button,.h-dialog .h-button,.h-login .h-button { border-radius: 8px; font-weight: 600; }
+  .h-app .h-button.secondary,.h-dialog .h-button.secondary { border-color: #cbd6bf; color: #36512e; }
+  .h-app .h-button.secondary:hover:not(:disabled),.h-dialog .h-button.secondary:hover:not(:disabled) { background: #f0f4e7; border-color: #92a67e; }
+  .h-app .h-button.quiet:hover:not(:disabled),.h-dialog .h-button.quiet:hover:not(:disabled) { background: #edf2e5; }
+  .h-app input,.h-app select,.h-app textarea,
+  .h-dialog input,.h-dialog select,.h-dialog textarea,.h-login input {
+    border-color: #c7d2bd; border-radius: 8px; caret-color: var(--forest);
+  }
+  .h-app input::placeholder,.h-dialog input::placeholder,.h-login input::placeholder { color: #68735f; }
+  .h-app .h-field>span,.h-dialog .h-field>span { color: #354b2d; font-weight: 600; }
+  .h-app :focus-visible,.h-dialog :focus-visible,.h-login :focus-visible { outline-color: #55773d; }
+  .h-app .h-sidebar :focus-visible { outline-color: #dce8c6; }
+  .h-app .h-table th,.h-dialog .h-table th { background: #edf1e5; color: #405535; border-color: var(--line); }
+  .h-app .h-table td,.h-dialog .h-table td { border-color: #e4e9dc; }
+  .h-app .h-table tbody tr:hover { background: #f5f8ef; }
+  .h-app .h-tabs button.active { color: #294822; border-bottom-color: #53713f; }
+  .h-app .h-order-card { border-color: #dce2d3; box-shadow: none; border-radius: 8px; }
+  .h-app .h-order-card.selected { background: #edf3e4; border-color: #809b6b; box-shadow: inset 3px 0 #3c5d35; }
+  .h-app .h-order-card:focus-within { background: #f5f8ef; border-color: #789565; }
+  .h-app .h-order-card .h-quantity { background: #f4f6ed; border-color: #ccd7c0; border-radius: 6px; }
+  .h-app .h-order-card.selected .h-quantity { background: #fff; }
+  .h-dialog { border-color: #d6dfcc; border-radius: 12px; box-shadow: 0 20px 60px #192d2430; }
+  .h-dialog .h-dialog-inner>header h2 { font-weight: 600; letter-spacing: -.02em; }
+  .h-dialog .h-review-meta,.h-dialog .h-order-detail-status { background: #f0f4e8; border-color: var(--line); }
+  .h-notice { border-radius: 8px; }
+  .h-notice:not(.error):not(.success) { background: #f0f4e7; border-color: #d1ddc3; color: #3d5432; }
+  .h-notice.error { background: #fff0e9; color: #963722; border-color: #edc4b5; }
+  .h-notice.success { background: #e8f1de; color: #365c29; border-color: #c7d8b3; }
+  .h-app .h-admin .rounded-3xl,.h-app .h-admin .rounded-2xl { border-radius: 10px; }
+  .h-app .h-admin .shadow-lg,.h-app .h-admin .shadow-xl { box-shadow: 0 4px 16px #2435210a; }
+  .h-app .h-bottom-nav { background: #fcfcf8; border-color: var(--line); }
+  .h-app .h-bottom-nav a.active { background: #e6ecd8; color: #294822; }
+  .h-login .h-login-story { background: #243b22; }
+  .h-login .h-login-card h2 { font-weight: 600; letter-spacing: -.02em; }
+  ::selection { background: #dbe6c8; color: #243b22; }
+}

@@ -1,0 +1,66 @@
+/* Refinement of the existing HTOS settings; no ordering or print layout changes. */
+@media screen {
+ .h-editor-spreadsheet .h-editor-help,
+ .h-editor-spreadsheet .h-editor-savebar small {color:#53675d}
+ .h-system-workspace {display:grid;gap:20px;min-width:0}
+ .h-system-workspace .h-panel {margin:0;min-width:0}
+ .h-service-layout {grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-items:start}
+ .h-backup-layout {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+ .h-settings-body {padding:20px;display:flex;flex-direction:column;align-items:flex-start;gap:16px;min-width:0;font-size:14px;line-height:1.55}
+ .h-settings-body>p {margin:0;max-width:70ch}
+ .h-settings-body .h-field {width:100%}
+ .h-settings-body input[type=file] {max-width:100%;width:100%;font-size:13px;padding:10px;background:var(--ht-paper,#fcfcf8)}
+ .h-settings-body input::file-selector-button {font:inherit;font-weight:600;color:var(--forest);background:var(--ht-leaf,#e6ecd8);border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-right:10px;cursor:pointer}
+ .h-settings-body input::file-selector-button:hover {background:#dce5ce}
+ .h-settings-body .h-notice {width:100%;margin:0}
+ .h-system-workspace .h-email-routing {display:grid;width:100%;gap:0;margin:0;padding:0;background:transparent;border:0;border-radius:0}
+ .h-system-workspace .h-email-routing>div {grid-template-columns:138px minmax(0,1fr);gap:16px;padding:13px 0;overflow-wrap:normal;border-bottom:1px solid var(--line)}
+ .h-system-workspace .h-email-routing>div:first-child {padding-top:0}
+ .h-system-workspace .h-email-routing>div:last-child {border-bottom:0;padding-bottom:0}
+ .h-email-routing dt {font-size:14px;font-weight:600;word-break:normal;overflow-wrap:normal}
+ .h-email-routing dd {font-size:14px;overflow-wrap:anywhere}
+ .h-settings-action {display:flex;flex-wrap:wrap;align-items:center;gap:12px;width:100%;border-top:1px solid var(--line);padding-top:16px}
+ .h-settings-action p {flex:1 1 240px;margin:0;font-size:13px}
+ .h-service-detail {width:100%;min-width:0}
+ .h-service-detail+.h-service-detail {border-top:1px solid var(--line);padding-top:16px}
+ .h-service-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+ .h-service-heading h3 {font-size:14px;font-weight:600;margin:0}
+ .h-service-detail p {font-size:13px;margin:10px 0 0;line-height:1.6}
+ .h-settings-details {font-size:13px;line-height:1.6;width:100%;margin-top:8px;color:var(--muted)}
+ .h-settings-details summary {cursor:pointer;color:var(--forest);font-weight:600;padding:8px 0;min-height:36px}
+ .h-settings-details p {margin:0 0 8px;max-width:70ch}
+ .h-settings-details summary:focus-visible {outline:2px solid var(--green);outline-offset:3px;border-radius:4px}
+ .h-backup-scope {margin:0;display:grid;gap:12px;font-size:13px}
+ .h-backup-scope>div {display:grid;grid-template-columns:80px minmax(0,1fr);gap:12px}
+ .h-backup-scope dt {font-weight:600}
+ .h-backup-scope dd {margin:0;color:var(--muted)}
+ .h-restore-warning {background:#fcf0d9;color:#795419;padding:12px 14px;border:1px solid #e7d6b7;border-radius:8px;font-size:13px}
+ .h-settings-body .h-check {align-items:flex-start;line-height:1.5;font-size:13px}
+ .h-settings-body .h-check input {flex-shrink:0;margin-top:3px}
+ .h-system-workspace .h-transfer-row>div:first-child {flex-basis:280px}
+ .h-system-workspace .h-transfer-row p {max-width:68ch}
+ .h-system-workspace .h-panel-head {padding:18px 20px}
+ /* Bring inherited administration controls into the approved olive palette. */
+ .h-app .h-admin {color:var(--ht-ink,#243521)}
+ .h-app .h-admin input[type=checkbox] {accent-color:var(--green)}
+ .h-app .h-admin button.h-button {border-radius:8px;font-weight:600}
+ .h-app .h-admin button.h-button:not(.secondary):not(.quiet):not(.danger) {background:var(--green)}
+ .h-app .h-admin button.h-button:not(:disabled):hover {filter:brightness(.96)}
+ .h-app .h-admin button.h-button.secondary {background:var(--surface,#fff);color:var(--forest);border-color:var(--line)}
+ .h-app .h-admin button.h-button.quiet {background:transparent;color:var(--green)}
+ .h-app .h-admin button.h-button.danger {background:#fff3ef;color:#a63825;border-color:#f2d6cc}
+ .h-app .h-admin h3.text-lg {font-size:16px;font-weight:600;letter-spacing:-.015em;color:var(--forest)}
+ .h-app .h-admin .text-gray-500 {color:var(--muted)}
+ .h-app .h-admin input::placeholder,.h-app .h-admin textarea::placeholder {color:#68735f;opacity:1}
+ .h-app .h-admin .text-gray-900,.h-app .h-admin .text-gray-800 {color:var(--ht-ink,#243521)}
+ .h-app .h-admin button:disabled {cursor:not-allowed}
+ @media(max-width:1100px) {
+  .h-service-layout,.h-backup-layout {grid-template-columns:1fr}
+  .h-settings-body {padding:18px}
+ }
+ @media(max-width:600px) {
+  .h-system-workspace .h-email-routing>div {grid-template-columns:1fr;gap:4px}
+  .h-backup-scope>div {grid-template-columns:1fr;gap:3px}
+  .h-settings-action .h-button {width:100%}
+ }
+}

@@ -1,0 +1,12 @@
+import {mkdir,writeFile,copyFile} from 'node:fs/promises';
+import {renderPurchaseOrderEmail} from '../shared/order-email-template';
+import type {OrderRecord,Branch,Supplier} from '../types';
+const order={id:'c874c4c5-f1fd-4a43-99ca-a561266a884b',branchId:'sample',branchNameSnapshot:'Hare & Tortoise - Sample branch',supplierNameSnapshot:'Sample supplier',orderedByNameSnapshot:'Branch manager',deliveryDate:'2026-10-14',createdAt:'2026-10-12T09:36:00Z',items:Array.from({length:8},(_,i)=>({productNameSnapshot:['Haruka Rice','Soft Shell Crab','Chicken & Vegetable Gyoza','Boneless Roast Duck'][i%4],itemCodeSnapshot:'A'+String(3011+i),caseQty:i%3+1,packQty:0,caseUnitSnapshot:'Box',packUnitSnapshot:'Pack'})),manualItems:[{description:'Special kitchen item',caseQty:0,packQty:2}],comments:'Please use the delivery entrance.'} as OrderRecord;
+const branch={id:'sample',name:order.branchNameSnapshot,address:'Example address, London',contactPerson:'Branch team',contactPhone:'020 0000 0000',email:'branch@example.invalid'} as Branch;
+const supplier={name:'Sample supplier',contactName:'Supplier team',contactPhone:'020 1111 1111',globalAccountCode:'SAMPLE-01'} as Supplier;
+const folder='../../work/email-format-preview';
+await mkdir(folder+'/.vercel/output/static',{recursive:true});
+await copyFile('.vercel/project.json',folder+'/.vercel/project.json');
+await writeFile(folder+'/.vercel/output/config.json',JSON.stringify({version:3}));
+await writeFile(folder+'/.vercel/output/static/index.html',renderPurchaseOrderEmail(order,branch,supplier));
+console.log('Synthetic email preview prepared; no database or mail access.');

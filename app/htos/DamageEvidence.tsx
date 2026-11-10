@@ -1,0 +1,9 @@
+import React,{useState} from 'react';
+import type {InvoiceEvidence} from '../../types';
+import {damagePhoto} from './invoiceEvidence';
+import {Button,Field,useAction} from './ui';
+export function DamageEvidence({lines,value,onChange}:{lines:{lineId?:string;description:string}[];value:InvoiceEvidence[];onChange:(value:InvoiceEvidence[])=>void}){
+ const [line,setLine]=useState(''),action=useAction();
+ const add=(event:React.ChangeEvent<HTMLInputElement>)=>{const file=event.target.files?.[0];event.target.value='';if(file)void action.run(async()=>{if(value.length>=2)throw new Error('Attach up to two photographs per check.');onChange([...value,await damagePhoto(file,line)]);});};
+ return <section className="h-damage-evidence"><h3>Damage photos</h3><div className="h-form-grid"><Field label="Affected item"><select value={line} onChange={e=>setLine(e.target.value)}><option value="">Select item</option>{lines.map(l=><option key={l.lineId} value={l.lineId}>{l.description}</option>)}</select></Field><Field label="Take a photo" hint="Up to two photos per check. Keep originals for your records."><input type="file" capture="environment" accept="image/jpeg,image/png,image/webp" disabled={!line||value.length>=2||action.busy} onChange={add}/></Field><Field label="Or upload a saved photo"><input type="file" accept="image/jpeg,image/png,image/webp" disabled={!line||value.length>=2||action.busy} onChange={add}/></Field></div><div className="h-evidence-grid">{value.map(p=><div key={p.id}><img width="160" src={p.dataUrl} alt={p.caption||'Damage evidence'}/><strong>{lines.find(l=>l.lineId===p.lineId)?.description}</strong><input aria-label="Damage photo caption" maxLength={500} placeholder="Describe damage" value={p.caption} onChange={e=>onChange(value.map(x=>x.id===p.id?{...x,caption:e.target.value}:x))}/><Button variant="quiet" onClick={()=>onChange(value.filter(x=>x.id!==p.id))}>Remove photo</Button></div>)}</div>{action.feedback}</section>;
+}

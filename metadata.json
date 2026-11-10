@@ -1,0 +1,6 @@
+{
+  "name": "OrderSystem",
+  "description": "A local-first PWA for supply chain ordering with offline capabilities, order history, and role-based access control.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,48 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {initializeApp,deleteApp} from 'firebase/app';
+import {getAuth,connectAuthEmulator,signInWithEmailAndPassword} from 'firebase/auth';
+import {getFirestore,connectFirestoreEmulator,doc,setDoc,updateDoc,terminate} from 'firebase/firestore';
+import {getAdmin} from '../api/firebase-admin.ts';
+import {saveOrderEntry} from '../server/order-entry-service.ts';
+import {saveFulfillment} from '../server/fulfillment-workflow-service.ts';
+assert.equal(process.env.FIRESTORE_EMULATOR_HOST,'127.0.0.1:8085');
+assert.equal(process.env.FIREBASE_AUTH_EMULATOR_HOST,'127.0.0.1:9095');
+assert.ok(!process.env.FIREBASE_SERVICE_ACCOUNT_KEY&&!process.env.GOOGLE_APPLICATION_CREDENTIALS);
+process.env.HTOS_MODE='emulator';process.env.FIREBASE_PROJECT_ID='demo-htos';
+const {db,auth}=getAdmin(),uid='entry-'+randomUUID(),password=randomUUID(),email=uid+'@example.invalid';
+const app=initializeApp({projectId:'demo-htos',apiKey:'demo-key'},uid),clientAuth=getAuth(app),clientDb=getFirestore(app);
+connectAuthEmulator(clientAuth,'http://127.0.0.1:9095',{disableWarnings:true});connectFirestoreEmulator(clientDb,'127.0.0.1',8085);
+const branch=uid+'-b',supplier=uid+'-s',warehouse=uid+'-w',product=uid+'-p',orderId=uid+'-o';
+const records:[string,string][]=[];
+const seed=async(c:string,id:string,data:any)=>{records.push([c,id]);await db.collection(c).doc(id).set(data);};
+try{
+ await auth.createUser({uid,email,password});await seed('users',uid,{id:uid,displayName:'Test',role:'CREATOR',active:true,branchId:branch});
+ await seed('branches',branch,{name:'Synthetic branch',active:true});await seed('branches',warehouse,{name:'Synthetic supplier branch',active:true,actsAsSupplier:true});
+ await seed('suppliers',supplier,{name:'Synthetic supplier',active:true,allBranches:true,linkedBranchId:warehouse,deliveryRules:{default:[0,1,2,3,4,5,6]}});
+ await seed('products',product,{name:'Rice',active:true,supplierId:supplier,casePrice:10,packPrice:2});
+ await signInWithEmailAndPassword(clientAuth,email,password);
+ const now=new Date('2026-10-11T12:00:00Z');const line={productId:product,productNameSnapshot:'Rice',caseQty:2,packQty:0,casePriceSnapshot:10,packPriceSnapshot:2};
+ const order={id:orderId,branchId:branch,supplierId:supplier,orderedByUserId:uid,createdAt:now.toISOString(),deliveryDate:'2026-10-14',status:'DRAFT',items:[line],manualItems:[],comments:''};
+ const denied=(op:Promise<unknown>)=>assert.rejects(op,(e:any)=>e.code==='permission-denied');
+ await denied(setDoc(doc(clientDb,'orders',orderId),order));
+ await assert.rejects(saveOrderEntry(db,uid,{mode:'create',order:{...order,deliveryDate:'2026-10-19'}},now),/7 days/);
+ records.push(['orders',orderId]);const saved=await saveOrderEntry(db,uid,{mode:'create',order},now);
+ await denied(updateDoc(doc(clientDb,'orders',orderId),{deliveryDate:'2026-12-01'}));
+ await saveOrderEntry(db,uid,{mode:'edit',expectedRevision:1,order:{...saved.order,status:'PLACED'}},now);
+ const placed=(await db.collection('orders').doc(orderId).get()).data()!;
+ const updates={items:placed.items.map((i:any)=>({...i,sentCaseQty:2,sentPackQty:0})),manualItems:[]};
+ await db.collection('users').doc(uid).update({role:'GM'});
+ await assert.rejects(saveFulfillment(db,uid,{orderId,updates}),/Only staff assigned/);
+ await db.collection('users').doc(uid).update({branchIds:[warehouse]});
+ await saveFulfillment(db,uid,{orderId,updates});
+ await denied(updateDoc(doc(clientDb,'orders',orderId),{items:updates.items.map((i:any)=>({...i,sentCaseQty:0}))}));
+ await updateDoc(doc(clientDb,'orders',orderId),{emailStatus:'SENT',emailSentAt:now.toISOString(),emailError:''});
+ assert.equal((await db.collection('orders').doc(orderId).get()).data()?.receivedStatus,'PROCESSED');
+ console.log('PASS: real emulator transactions, client write denial, seven-day validation, draft placement, and explicit supplier dispatch assignment.');
+}finally{
+ await terminate(clientDb);await deleteApp(app);
+ for(const[c,id]of records)await db.collection(c).doc(id).delete();
+ const logs=await db.collection('_audit_logs').where('userId','==',uid).get();for(const d of logs.docs)await d.ref.delete();
+ await auth.deleteUser(uid);
+}

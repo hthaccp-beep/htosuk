@@ -1,0 +1,25 @@
+/* Scoped reset and utilities: the restored administration tools use HTOS colours. */
+.h-admin {font-family:'DM Sans',system-ui,sans-serif;line-height:1.5;color:#213b35}
+.h-admin *, .h-admin ::before, .h-admin ::after {border-width:0;border-style:solid;border-color:#e4e8df;box-sizing:border-box}
+.h-admin h1,.h-admin h2,.h-admin h3,.h-admin h4,.h-admin p {margin:0}
+.h-admin button {font:inherit;background:transparent;padding:0;line-height:inherit}
+.h-admin input,.h-admin select,.h-admin textarea {font:inherit;min-height:0;padding:0;border-radius:0;background:white;width:auto;color:inherit}
+.h-admin input[type=checkbox] {width:16px;height:16px;min-height:0;accent-color:#25765b}
+.h-admin table {border-collapse:collapse;text-indent:0}
+.h-admin svg {display:block;flex-shrink:0}
+.h-admin ul {list-style:none;margin:0;padding:0}
+.h-admin button:disabled {opacity:.5}
+.h-app .h-admin button:focus-visible {outline:2px solid var(--green);outline-offset:3px}
+.h-app .h-admin button[aria-label^="Edit "],.h-app .h-admin button[aria-label^="Delete "],.h-app .h-admin button[aria-label^="Select "] {min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center}
+.h-app .h-admin .text-gray-400 {color:#687460}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+.h-admin .custom-scrollbar {scrollbar-width:thin}
+.h-admin-nav {display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.h-admin-nav button {border:1px solid var(--line);border-radius:10px;padding:12px 20px;background:#fff;color:var(--forest);font-weight:600}
+.h-admin-nav button.active {background:var(--forest);color:white}
+.h-admin .sr-only {min-height:0!important;width:1px!important;height:1px!important;padding:0!important}
+
+.h-admin button.h-button {padding:10px 17px;background:#25765b;color:white;border-radius:9px}
+.h-admin button.h-button.secondary {background:white;color:#25765b;border:1px solid #dbe1d7}

@@ -1,0 +1,141 @@
+/* finesse · product operations · compact catalogue · existing Hare & Tortoise palette */
+.h-catalogue-workspace{min-width:0}.h-catalogue-workspace .h-admin>.h-button{margin-bottom:16px}
+.h-product-workbench{min-width:0}.h-workbench-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.h-workbench-heading>span{font-size:12px;color:var(--muted)}
+.h-editor-steps{list-style:none;display:flex;gap:24px;padding:10px 20px;margin:0;border-bottom:1px solid var(--line);background:#fafbf7}.h-editor-steps li{display:flex;align-items:center;gap:9px;color:#7e8c84;font-size:12px;font-weight:600}.h-editor-steps li>span{display:grid;place-items:center;border:1px solid #dce4d5;border-radius:50%;width:25px;height:25px}.h-editor-steps .active{color:#1e6a51}.h-editor-steps .active>span,.h-editor-steps .complete>span{background:#e3eddb;color:#275f43}
+.h-editor-tools{display:flex;gap:20px;align-items:end;padding:12px 20px}.h-editor-tools>.h-field{flex:1;max-width:430px}.h-editor-file-actions{display:flex;gap:10px;margin-left:auto}.h-editor-summary{display:flex;align-items:center;flex-wrap:wrap;gap:18px;padding:12px 24px;margin:0;background:#f3f6ee;font-size:12px;color:#53675d}.h-editor-summary strong{color:#203e32}.h-editor-approval{margin-left:auto}
+.h-editor-controls{padding:10px 20px 0}.h-editor-tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);overflow-x:auto}.h-editor-tabs button{background:none;border:0;border-bottom:3px solid transparent;border-radius:0;padding:12px 14px;color:#718176;white-space:nowrap;font-size:13px;font-weight:600}.h-editor-tabs button[aria-pressed=true]{color:#215d47;border-color:#26765b}.h-editor-filters{display:flex;align-items:center;gap:18px;margin-top:8px}.h-editor-filters>input{flex:1;max-width:430px;min-width:0}.h-editor-filters label{display:flex;align-items:center;gap:7px;font-size:12px;white-space:nowrap}.h-editor-help{padding:8px 20px;margin:0;color:#738279;font-size:12px;line-height:1.6}
+.h-editor-grid-fieldset{border:0;padding:0;margin:0;min-width:0}
+.h-editor-table-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 20px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}
+.h-editor-table-tools .h-button{font-size:11px;min-height:30px;padding:5px 8px}
+.h-editor-table{max-height:72vh;overflow:auto;scrollbar-gutter:stable;border-block:1px solid var(--line);scroll-padding-left:270px;overscroll-behavior-x:contain}
+.h-editor-table:focus-visible{outline:2px solid #26765b;outline-offset:2px}
+.h-editor-table .h-table{min-width:100%;max-width:none;table-layout:fixed;border-collapse:separate;border-spacing:0}
+.h-editor-table thead{position:sticky;top:0;z-index:3;background:#f6f8f2}
+.h-editor-table th{position:relative;font-size:11px;font-weight:600;color:#52675a;padding:9px 12px 9px 8px;overflow:visible;background:#f6f8f2}
+.h-editor-table td{background:#fff;vertical-align:middle;padding:5px 8px;font-size:12px;border-right:1px solid #eff2eb;overflow-wrap:anywhere}
+.h-editor-table tr.is-edited>td{background:#f4f9f0}
+.h-editor-table tbody tr:hover>td{background:#f3f7ee}
+.h-editor-table th.h-editor-pinned,.h-editor-table td.h-editor-pinned{position:sticky;left:0;z-index:1;border-right:1px solid #d5dfcf;box-shadow:3px 0 5px #153c2f09}
+.h-editor-table th.h-editor-pinned{z-index:4;background:#f6f8f2}
+.h-editor-product{display:grid;gap:3px;min-width:0}
+.h-editor-product strong{font-size:12px;line-height:1.4;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.h-editor-table td small{display:block;font-size:10px;margin-top:2px;line-height:1.3}
+.h-editor-product small{margin:0}
+.h-editor-error{color:#a73726!important}
+.h-editor-table input:not([type=checkbox]),.h-editor-table select{font-size:12px;height:30px;min-height:30px;border-radius:5px;padding:4px 6px;width:100%;min-width:0;max-width:none}
+.h-editor-table input.h-editor-chinese{height:24px;min-height:24px;font-size:11px;color:#687d70;background:#fafcf8}
+.h-editor-table input[aria-invalid=true]{border-color:#b84b37}
+.h-editor-table .h-field{margin:0;min-width:0;gap:2px}
+.h-editor-table .h-field+.h-field{margin-top:4px}
+.h-editor-table .h-field>span{font-size:10px;line-height:1.2}
+.h-editor-table .h-button{font-size:11px;min-height:26px;padding:3px 6px}
+.h-editor-branches{min-width:0;max-width:none}
+.h-editor-branches summary{cursor:pointer;padding:5px 6px;border:1px solid var(--line);border-radius:5px;font-size:12px}
+.h-editor-branches label{display:flex;gap:7px;align-items:start;margin:8px 0;line-height:1.4}
+@media(pointer:coarse){.h-editor-table input:not([type=checkbox]),.h-editor-table select{height:34px;min-height:34px}.h-editor-table input.h-editor-chinese{height:30px;min-height:30px}}
+.h-editor-pagination{display:flex;gap:8px;align-items:center;justify-content:flex-end;padding:12px 24px;font-size:12px}.h-editor-pagination>span{margin-right:auto}.h-editor-savebar{position:sticky;bottom:12px;z-index:5;display:flex;align-items:center;gap:10px;margin:8px 16px 16px;padding:16px;background:#fff;box-shadow:0 8px 30px #153c2f18;border:1px solid #d8e3d0;border-radius:12px}.h-editor-savebar>div{margin-right:auto}.h-editor-savebar strong{font-size:13px}.h-editor-savebar small{display:block;color:#7c8a80;font-size:11px;margin-top:4px}.h-editor-review{display:flex;justify-content:space-between;gap:16px;padding:18px;background:#eff5e9;border-radius:10px;margin:20px 0}.h-editor-review span{font-size:13px}.h-editor-sequence{padding:12px;background:#f7f8f3;margin-bottom:16px}.h-editor-sequence summary{cursor:pointer}.h-editor-sequence ol{max-height:240px;overflow:auto;line-height:1.8;font-size:13px}
+@media(max-width:900px){.h-editor-tools{flex-wrap:wrap}.h-editor-tools>.h-field{max-width:none;flex-basis:100%}.h-editor-file-actions{margin-left:0}.h-editor-approval{flex-basis:100%;margin-left:0}.h-editor-savebar{flex-wrap:wrap}.h-editor-savebar>div{flex:1 0 100%}.h-editor-savebar .h-button{flex:1}.h-editor-steps{gap:12px}.h-editor-steps li{font-size:11px}}
+@media(max-width:620px){.h-editor-tools,.h-editor-controls{padding:16px}.h-editor-steps{padding:14px;gap:10px}.h-editor-steps li{gap:5px;font-size:10px}.h-editor-steps li>span{width:20px;height:20px;flex:none}.h-editor-summary,.h-editor-help{padding:12px 16px}.h-editor-filters{flex-wrap:wrap;gap:10px}.h-editor-filters>input{flex-basis:100%;max-width:none}.h-editor-file-actions{width:100%;flex-wrap:wrap}.h-editor-file-actions .h-button{flex:1;font-size:12px}.h-editor-table-tools{padding:5px 12px;align-items:flex-start}.h-editor-table-tools>span{max-width:180px}.h-editor-savebar{bottom:72px;margin:8px;padding:12px}.h-editor-savebar .h-button{padding:10px;font-size:12px}.h-editor-review{flex-direction:column}.h-workbench-heading>span{display:none}}
+.h-product-workbench .h-panel-head{padding:16px 20px}
+.h-product-workbench .h-panel-head h2{font-size:20px}
+.h-editor-tools{gap:12px;flex-wrap:wrap}
+.h-editor-tools>.h-feedback,.h-editor-tools>[role=alert]{flex-basis:100%}
+.h-editor-tools .h-field{margin:0}
+.h-product-workbench .h-editor-tools input,.h-product-workbench .h-editor-tools select,.h-product-workbench .h-editor-filters input:not([type=checkbox]),.h-product-workbench .h-editor-filters select{min-height:38px;padding:7px 10px;font-size:13px}
+.h-editor-filters{flex-wrap:wrap;gap:10px}
+.h-editor-filters>select{max-width:190px}
+.h-editor-batch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 20px;border-top:1px solid var(--line);background:var(--ht-paper)}
+.h-editor-batch label{display:flex;align-items:center;gap:7px;font-size:12px;margin-right:auto}
+.h-editor-batch input:not([type=checkbox]),.h-editor-batch select{width:auto;max-width:210px;min-height:34px;padding:6px 8px;font-size:12px}
+.h-editor-batch .h-button{min-height:34px;padding:6px 10px;font-size:12px;white-space:nowrap}
+.h-editor-file-actions .h-button{min-height:38px;padding:8px 12px;font-size:13px;white-space:nowrap}
+.h-editor-table{max-height:55vh;scrollbar-width:thin}
+.h-editor-table input[type=checkbox],.h-editor-batch input[type=checkbox]{width:17px;height:17px;accent-color:var(--green)}
+.h-editor-table input[type=number]{text-align:right;font-variant-numeric:tabular-nums}
+.h-editor-table .h-editor-product strong{white-space:normal}
+.h-editor-table td{background:var(--ht-paper)}
+.h-editor-table th.h-editor-pinned,.h-editor-table td.h-editor-pinned{left:0}
+.h-import-change-list{max-height:220px;overflow:auto;margin:10px 0;padding-left:22px;font-size:13px}
+.h-import-change-list li{padding:5px 0}.h-import-change-list span{display:block;color:var(--muted)}
+.h-import-missing{border-top:1px solid var(--line);margin-top:20px;padding-top:16px}.h-import-missing-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.h-import-missing-heading .h-button{white-space:normal}.h-import-missing p{margin:10px 0;font-size:14px}.h-import-missing small{display:block;color:var(--muted)}.h-import-missing details{margin-top:12px}
+.h-file-guide{padding-left:22px;line-height:1.7}.h-file-guide li{margin:10px 0}
+@media(max-width:620px){.h-editor-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible}.h-editor-tabs button{padding:9px 4px;font-size:12px}.h-editor-batch{padding:10px 14px}.h-editor-batch label{flex-basis:100%}.h-editor-batch input:not([type=checkbox]),.h-editor-batch select{flex:1;min-width:0;max-width:100%}.h-editor-filters>select{max-width:none;width:100%}.h-editor-savebar{bottom:72px}.h-editor-table th.h-editor-pinned,.h-editor-table td.h-editor-pinned{position:static}.h-product-workbench .h-dialog-foot{flex-wrap:wrap}.h-product-workbench .h-dialog-foot .h-button{white-space:nowrap}}
+
+/* Approved Option 2: compact spreadsheet, scoped to the existing bulk editor. */
+.h-editor-spreadsheet{min-width:0;--name-width:200px}
+.h-editor-spreadsheet>.h-panel{overflow:visible}
+.h-editor-spreadsheet .h-panel-head{padding:12px 16px}
+.h-editor-spreadsheet .h-panel-head p{margin:4px 0 0;font-size:12px}
+.h-editor-spreadsheet .h-editor-start{display:grid;grid-template-columns:minmax(230px,1fr) minmax(380px,auto);gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.h-editor-spreadsheet .h-editor-start.has-file-flow{display:block}
+.h-editor-spreadsheet .h-editor-tools{padding:0;align-items:start}
+.h-editor-spreadsheet .h-editor-tools>.h-field{max-width:350px;flex:1}
+.h-editor-spreadsheet .h-editor-tools .h-field>span{font-size:12px}
+.h-editor-spreadsheet .h-editor-tools .h-field>small{font-size:11px;line-height:1.4}
+.h-editor-spreadsheet .h-product-transfer{padding:0}
+.h-editor-spreadsheet .h-product-files-toolbar{gap:8px;padding:0 0 5px;justify-content:flex-end;flex-wrap:nowrap}
+.h-editor-spreadsheet .h-product-files-toolbar>div{flex:0 1 auto}
+.h-editor-spreadsheet .h-product-files-toolbar .h-button{min-height:36px;font-size:12px;padding:7px 12px}
+.h-editor-spreadsheet .h-product-files-toolbar small{display:none}
+.h-editor-spreadsheet .h-product-file-options>summary{font-size:11px;padding:5px 0;cursor:pointer;color:var(--green)}
+.h-editor-spreadsheet .h-product-file-options{max-width:520px}
+.h-editor-spreadsheet .h-product-file-options select{min-height:32px;padding:4px;font-size:12px;width:auto;max-width:100%}
+.h-editor-spreadsheet .h-editor-summary{padding:7px 16px;gap:12px;font-size:12px;flex-wrap:wrap}
+.h-editor-spreadsheet .h-editor-approval{font-size:11px}
+.h-editor-spreadsheet .h-editor-controls{padding:8px 16px}
+.h-editor-spreadsheet .h-editor-filters{gap:8px;align-items:center}
+.h-editor-spreadsheet .h-editor-filters>input{flex:1;max-width:none;min-width:160px}
+.h-editor-spreadsheet .h-editor-filters label{font-size:12px;white-space:nowrap}
+.h-editor-spreadsheet .h-editor-help{padding:0 16px 6px;margin:0;font-size:11px}
+.h-editor-spreadsheet .h-editor-help summary{cursor:pointer;width:fit-content}
+.h-editor-spreadsheet .h-editor-help p{margin:6px 0;max-width:75ch;line-height:1.5}
+.h-editor-spreadsheet .h-editor-batch{padding:6px 16px;min-height:36px}
+.h-editor-spreadsheet .h-editor-table{height:clamp(280px,52vh,560px);min-height:280px;max-height:none;scroll-padding-left:calc(var(--name-width) + 44px);border-block:1px solid var(--line)}
+.h-editor-spreadsheet .h-editor-table th{height:34px;padding:6px;font-size:11px;white-space:nowrap}
+.h-editor-spreadsheet .h-editor-table td{height:38px;padding:2px 5px;font-size:11px}
+.h-editor-spreadsheet .h-editor-table .h-editor-select{position:sticky;left:0;z-index:2;text-align:center;background:var(--ht-paper)}
+.h-editor-spreadsheet .h-editor-table .h-editor-pinned{position:sticky;left:44px;z-index:2}
+.h-editor-spreadsheet .h-editor-table th.h-editor-pinned,.h-editor-spreadsheet .h-editor-table th.h-editor-select{z-index:4;background:#f6f8f2}
+.h-editor-spreadsheet .h-editor-table .h-product-name-col{width:var(--name-width)!important}
+.h-editor-spreadsheet .h-editor-table input:not([type=checkbox]),.h-editor-spreadsheet .h-editor-table select{height:32px;min-height:32px;border-color:transparent;background:transparent;border-radius:3px;padding:4px;font-size:12px}
+.h-editor-spreadsheet .h-editor-table input:not([type=checkbox]):hover,.h-editor-spreadsheet .h-editor-table select:hover{border-color:var(--line);background:white}
+.h-editor-spreadsheet .h-editor-table input:focus,.h-editor-spreadsheet .h-editor-table select:focus{border-color:var(--green);background:white;outline:2px solid #789963;outline-offset:-1px}
+.h-editor-spreadsheet .h-editor-table input[aria-invalid=true]{border-color:#a73726;background:#fff2ed}
+.h-editor-spreadsheet .h-editor-pinned input{font-weight:600;text-overflow:ellipsis}
+.h-editor-spreadsheet .h-editor-pinned input:focus{text-overflow:clip}
+.h-editor-spreadsheet .h-editor-table input[type=number]{appearance:textfield;font-variant-numeric:tabular-nums}
+.h-editor-spreadsheet .h-editor-table input::-webkit-inner-spin-button{appearance:none}
+.h-editor-spreadsheet .h-editor-table input[readonly]{background:#eef1e9;color:#52675a}
+.h-editor-spreadsheet .h-editor-table .h-editor-spacer{padding:0;border-right:0}
+.h-editor-spreadsheet .h-editor-table [data-column=changes]{white-space:nowrap}
+.h-editor-spreadsheet .h-editor-pagination{padding:5px 16px}
+.h-editor-spreadsheet .h-editor-pagination .h-button{padding:5px 9px;min-height:30px;font-size:12px}
+.h-editor-spreadsheet .h-editor-savebar{margin:0;padding:10px 16px;border-radius:0;border-width:1px 0 0;box-shadow:none;bottom:0;background:var(--ht-paper)}
+.h-editor-spreadsheet .h-editor-savebar .h-button{min-height:36px;padding:7px 12px;font-size:12px}
+.h-column-chooser{position:relative;margin-left:auto;font-size:12px}
+.h-column-chooser>summary{cursor:pointer;border:1px solid var(--line);border-radius:5px;padding:9px 12px;white-space:nowrap;background:#fff;color:var(--green)}
+.h-column-options{position:absolute;z-index:15;right:0;top:calc(100% + 6px);width:350px;max-width:calc(100vw - 32px);max-height:65vh;overflow:auto;padding:16px;border:1px solid var(--line);border-radius:8px;background:white;box-shadow:0 12px 24px #183e2d20}
+.h-column-options p{font-size:11px;line-height:1.5;margin:8px 0;color:#52675a}
+.h-column-options button{cursor:pointer;border:1px solid var(--line);padding:6px 9px;border-radius:4px;font:inherit;background:#fff;color:var(--green);min-height:32px}
+.h-column-options button[aria-pressed=true]{background:var(--green);color:white}
+.h-column-presets{display:flex;gap:6px;margin:10px 0}
+.h-column-checks{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px}
+.h-editor-spreadsheet .h-column-checks label{display:flex;align-items:center;white-space:normal;gap:7px;min-height:32px}
+.h-column-checks input{accent-color:var(--green)}
+@media(max-width:1000px){.h-editor-spreadsheet .h-editor-start{grid-template-columns:1fr}.h-editor-spreadsheet .h-product-files-toolbar{justify-content:flex-start}.h-editor-spreadsheet .h-editor-savebar>div{flex:1}.h-editor-spreadsheet .h-editor-savebar .h-button{flex:none}}
+@media(max-width:620px){.h-editor-spreadsheet{--name-width:165px}.h-editor-spreadsheet .h-editor-start,.h-editor-spreadsheet .h-editor-controls{padding:10px}.h-editor-spreadsheet .h-editor-filters>input{flex-basis:100%}.h-editor-spreadsheet .h-editor-filters>select{width:100%;max-width:none}.h-editor-spreadsheet .h-editor-table{height:360px}.h-editor-spreadsheet .h-editor-table td{height:42px}.h-editor-spreadsheet .h-editor-savebar{bottom:72px;flex-wrap:wrap;padding:10px}.h-editor-spreadsheet .h-editor-savebar>div{flex:1 0 100%}.h-editor-spreadsheet .h-editor-savebar .h-button{flex:1}.h-editor-spreadsheet .h-editor-batch label{flex-basis:100%}.h-column-options{width:310px}.h-editor-spreadsheet .h-product-files-toolbar .h-button{padding:7px 9px}}
+@media(pointer:coarse){.h-editor-spreadsheet .h-editor-table td{height:42px}.h-editor-spreadsheet .h-editor-table input:not([type=checkbox]),.h-editor-spreadsheet .h-editor-table select{height:36px;min-height:36px}}
+/* Keep the working rows visible in short laptop windows. */
+.h-content:has(.h-editor-spreadsheet){padding-top:12px}
+.h-editor-spreadsheet .h-workbench-heading{margin-bottom:4px;min-height:30px}
+.h-editor-spreadsheet .h-workbench-heading .h-button{min-height:28px;padding:4px 8px}
+.h-editor-spreadsheet .h-panel-head{padding:8px 16px}
+.h-editor-spreadsheet .h-panel-head p{display:none}
+.h-editor-spreadsheet .h-editor-start{padding:8px 16px}
+.h-editor-spreadsheet .h-editor-tools>.h-field{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;max-width:350px;gap:8px}
+.h-editor-spreadsheet .h-editor-tools .h-field>small{grid-column:1/-1;margin:0;font-size:10px}
+.h-editor-spreadsheet .h-editor-summary{padding:5px 16px}
+.h-editor-spreadsheet .h-editor-controls{padding:6px 16px}
+.h-editor-spreadsheet .h-editor-filters{margin-top:0}
+.h-editor-spreadsheet .h-column-options{position:fixed;top:80px;right:24px;max-height:calc(100dvh - 110px)}
+@media(max-width:620px){.h-editor-spreadsheet .h-column-options{right:12px;top:50px;max-height:calc(100dvh - 75px)}.h-editor-spreadsheet .h-editor-tools>.h-field{width:100%;max-width:none}}

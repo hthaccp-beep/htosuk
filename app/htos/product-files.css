@@ -1,0 +1,71 @@
+/* Product files use one page and one confirmation, within the existing HTOS shell. */
+.h-product-transfer{min-width:0;padding:0 20px 18px;--file-error:#9a341e}
+.h-product-files-toolbar{display:flex;align-items:start;gap:12px;padding:4px 0 12px;flex-wrap:wrap}
+.h-product-files-toolbar>div{flex:0 1 220px;display:grid;gap:5px}
+.h-product-files-toolbar .h-button{width:100%;min-height:42px;justify-content:center}
+.h-product-files-toolbar small{font-size:12px;color:var(--muted);line-height:1.5}
+.h-product-file-guide{font-size:13px;max-width:850px;color:var(--muted)}
+.h-product-file-guide summary{cursor:pointer;color:var(--green);font-weight:600;width:fit-content;padding:6px 0}
+.h-product-file-guide p{line-height:1.65}
+.h-product-file-review{min-width:0;border-top:1px solid var(--line);padding-top:18px;scroll-margin-top:18px}
+.h-product-file-review>header{margin-bottom:18px}
+.h-product-file-review h3{font-size:24px;line-height:1.3;margin:4px 0 8px;overflow-wrap:anywhere;scroll-margin-top:24px}
+.h-product-file-review h3:focus{outline:none}
+.h-product-file-review>header>p:last-child{font-size:13px;color:var(--muted);overflow-wrap:anywhere;margin:0}
+.h-file-eyebrow{font-size:12px;color:var(--green);font-weight:600;margin:0}
+.h-file-operation{padding:12px 14px;border-left:3px solid var(--green);background:var(--ht-paper);font-size:14px}
+.h-file-operation p{font-size:13px;margin:5px 0 0;line-height:1.6}
+.h-file-totals{display:flex;flex-wrap:wrap;list-style:none;padding:14px 0;margin:0;gap:12px 28px;border-bottom:1px solid var(--line)}
+.h-file-totals li{display:flex;align-items:baseline;gap:8px;font-size:13px;color:var(--muted)}
+.h-file-totals strong{font-size:24px;color:var(--forest);font-variant-numeric:tabular-nums;font-weight:600}
+.h-file-policy{font-size:13px;color:var(--muted);line-height:1.6}
+.h-csv-review-table{max-width:100%;overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+.h-csv-review-table table{border-collapse:collapse;table-layout:fixed;width:100%;min-width:780px;font-size:13px}
+.h-csv-review-table th,.h-csv-review-table td{text-align:left;padding:12px;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}
+.h-csv-review-table th{background:var(--ht-paper);color:var(--forest);font-size:12px;font-weight:600}
+.h-csv-review-table th:first-child{width:34%}.h-csv-review-table th:nth-child(2){width:20%}.h-csv-review-table th:nth-child(3),.h-csv-review-table th:nth-child(4){width:13%}
+.h-csv-review-table td>small{display:block;color:var(--muted);font-size:12px;line-height:1.5;margin:3px 0}
+.h-csv-review-table input{width:100%;min-width:0;min-height:40px;padding:8px;font:inherit;margin:4px 0;border:1px solid var(--line);border-radius:5px}
+.h-csv-review-table input[aria-invalid=true]{border-color:var(--file-error)}
+.h-csv-review-table summary{cursor:pointer;color:var(--green);padding:5px 0}
+.h-csv-review-table dl{margin:8px 0}.h-csv-review-table dt{font-size:11px;color:var(--muted);margin-top:10px}.h-csv-review-table dd{margin:4px 0;font-size:12px}
+.h-csv-review-table .h-file-review-warning{color:var(--file-error);font-size:12px;line-height:1.5}
+.h-file-removals{margin-top:18px;border-left:3px solid #b47736;background:#fffaf0;padding:12px 14px}
+.h-file-removals>div{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.h-file-removals p,.h-file-removals li{font-size:13px;line-height:1.6}.h-file-removals summary,.h-file-unmatched>summary,.h-file-unchanged>summary{cursor:pointer;font-size:14px;font-weight:600;padding:8px 0;color:var(--forest)}
+.h-file-removals ul,.h-file-unchanged ul{columns:2;column-gap:30px;padding-left:18px}.h-file-removals li,.h-file-unchanged li{break-inside:avoid;padding:4px 0;font-size:13px}
+.h-file-unmatched,.h-file-unchanged{border-top:1px solid var(--line);padding:8px 0;margin-top:14px}.h-file-unchanged p{font-size:13px;color:var(--muted)}
+.h-file-review-footer,.h-product-file-review .h-file-footer{position:sticky;bottom:0;z-index:3;background:var(--ht-paper);padding:12px 0;margin-top:18px;border-top:1px solid var(--line)}
+.h-file-review-footer .h-file-check{border:0;padding:6px 0 12px;margin:0;font-size:13px}.h-file-check input[type=checkbox]{width:19px;height:19px;accent-color:var(--green);flex:none;margin-top:3px}
+.h-file-review-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}.h-file-review-actions>span{font-size:12px;color:var(--muted);margin-right:auto}.h-file-review-actions .h-button{min-height:44px}
+.h-file-reading,.h-file-complete{padding:18px 0;font-size:14px;line-height:1.6;overflow-wrap:anywhere}.h-file-complete strong{font-size:19px}
+.h-product-file-review :focus-visible,.h-product-file-guide summary:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+.h-product-file-review .h-file-mapping .h-button{margin-top:12px}
+.h-product-file-review .h-conflict-footer{position:static}
+@media(max-width:980px){
+ .h-product-transfer{padding:0 14px 16px}.h-product-files-toolbar{gap:8px}.h-product-files-toolbar>div{flex:1 1 135px}.h-product-files-toolbar>div:last-child{flex-grow:0}.h-product-file-review h3{font-size:21px}
+ .h-csv-review-table table,.h-file-match-table table{display:block;min-width:0;table-layout:auto}.h-csv-review-table thead,.h-file-match-table thead{display:none}
+ .h-csv-review-table tbody,.h-file-match-table tbody{display:block}.h-csv-review-table tr,.h-file-match-table tr{display:grid;grid-template-columns:1fr 1fr;border-bottom:2px solid var(--line);padding:8px;gap:4px}
+ .h-csv-review-table td,.h-file-match-table td{display:block;border:0;padding:6px;min-width:0;font-size:13px}
+ .h-csv-review-table td:first-child,.h-csv-review-table td:nth-child(2),.h-csv-review-table td:last-child{grid-column:1/-1}
+ .h-csv-review-table td:nth-child(3):before,.h-file-match-table td:nth-child(4):before{content:'Case price';display:block;font-weight:600;font-size:12px;margin-bottom:5px}
+ .h-csv-review-table td:nth-child(4):before,.h-file-match-table td:nth-child(5):before{content:'Unit price';display:block;font-weight:600;font-size:12px;margin-bottom:5px}
+ .h-file-match-table td:nth-child(1),.h-file-match-table td:nth-child(2),.h-file-match-table td:nth-child(3),.h-file-match-table td:nth-child(6),.h-file-match-table td[colspan]{grid-column:1/-1}
+ .h-file-match-table td:first-child:has(input[type=checkbox]):after{content:'Include this update';margin-left:8px;font-size:13px}
+ .h-file-match-table td:nth-child(3){background:var(--ht-paper);border-left:2px solid var(--line)}
+ .h-file-removals ul,.h-file-unchanged ul{columns:1}.h-file-totals{gap:8px 20px}.h-file-totals strong{font-size:21px}
+ .h-file-review-actions>span{flex-basis:100%}.h-file-review-actions .h-button{flex:1;white-space:normal;font-size:13px;padding:10px}
+ .h-file-review-footer,.h-product-file-review .h-file-footer{position:static}.h-product-file-review .h-file-footer .h-dialog-foot{justify-content:flex-start}.h-product-file-review .h-file-footer .h-button{flex:1}
+ .h-product-file-review input:not([type=checkbox]),.h-product-file-review select{font-size:16px;min-height:44px}
+}
+
+.h-product-workbench:has(.h-product-file-review)>.h-panel{overflow:visible}
+.h-product-transfer .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+.h-csv-errors{border:1px solid #d9a292;border-radius:12px;padding:18px;background:#fff8f4;overflow-wrap:anywhere;margin:16px 0;color:var(--ink)}
+.h-csv-errors h4{font-size:18px;margin:0 0 8px}.h-csv-errors p{font-size:14px;line-height:1.6;margin:8px 0}
+.h-csv-error-list{max-height:420px;overflow:auto;border-top:1px solid #e6c9bd;border-bottom:1px solid #e6c9bd;margin:14px 0}
+.h-csv-error-list ol{margin:0;padding:0;list-style:none}.h-csv-error-list li{padding:12px 4px;border-bottom:1px solid #e6c9bd;display:grid;gap:5px;font-size:14px;line-height:1.5}
+.h-csv-error-list li:last-child{border-bottom:0}.h-csv-error-list:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+.h-csv-errors .h-csv-check-scope{font-size:12px}
+
+.h-csv-defaults{border:0;padding:0;display:grid;gap:16px;max-width:720px}.h-csv-defaults label{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.h-csv-defaults select{width:100%;padding:10px;border:1px solid var(--h-border,#cbd5bd);border-radius:8px;background:white;color:inherit}.h-csv-defaults small{display:block}

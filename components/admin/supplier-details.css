@@ -1,0 +1,67 @@
+.h-admin .supplier-editor {max-width:880px;height:min(780px,92dvh);max-height:92dvh;display:flex;flex-direction:column;overflow:hidden;padding:0;color:#243b2f;background:#fff;font-size:14px;line-height:1.5}
+.h-admin .supplier-editor-header {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px 16px;border-bottom:1px solid #dce2d3;flex-shrink:0}
+.h-admin .supplier-editor-header h3 {font-size:22px;line-height:1.3;color:#243b2f;margin:0;font-weight:650}
+.h-admin .supplier-editor-header p {margin:4px 0 0;color:#536450;font-size:13px;overflow-wrap:anywhere}
+.h-admin .supplier-editor-header button {width:40px;height:40px;display:grid;place-items:center;flex-shrink:0;border-radius:8px}
+.h-admin .supplier-editor form {display:flex;flex-direction:column;min-height:0;flex:1;margin:0}
+.h-admin .supplier-sections {display:flex;gap:8px;padding:0 24px;border-bottom:1px solid #dce2d3;flex-shrink:0}
+.h-admin .supplier-sections button {padding:13px 16px;border:0;border-bottom:3px solid transparent;background:transparent;color:#536450;font-size:14px;font-weight:600;border-radius:0;min-height:48px}
+.h-admin .supplier-sections button[aria-pressed=true] {color:#35562c;border-bottom-color:#527444}
+.h-admin .supplier-sections button:hover {background:#f4f6ef}
+.h-admin .supplier-fields {overflow-y:auto;overscroll-behavior:contain;min-height:0;min-width:0;margin:0;padding:20px 24px 28px;border:0;flex:1}
+.h-admin .supplier-fields section[hidden] {display:none}
+.h-admin .supplier-fields h4 {margin:0 0 12px;font-size:16px;font-weight:650;color:#243b2f}
+.h-admin .supplier-fields p {font-size:13px;color:#536450;margin:0 0 16px;max-width:75ch}
+.h-admin .supplier-grid {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px 20px}
+.h-admin .supplier-grid label {display:flex;flex-direction:column;gap:6px;min-width:0;font-size:13px;font-weight:600;color:#243b2f}
+.h-admin .supplier-wide {grid-column:1/-1}
+.h-admin .supplier-grid input,.h-admin .supplier-grid textarea,.h-admin .supplier-grid select {width:100%;min-width:0;border:1px solid #c9d3bf;border-radius:8px;background:#fff;color:#243b2f;padding:9px 11px;font:inherit;font-size:14px;font-weight:400;line-height:1.5;min-height:42px}
+.h-admin .supplier-grid textarea {resize:vertical;min-height:72px}
+.h-admin .supplier-grid input::placeholder,.h-admin .supplier-grid textarea::placeholder {color:#63715e;opacity:1}
+.h-admin .supplier-editor small {display:block;color:#536450;font-size:12px;font-weight:400;line-height:1.5}
+.h-admin .supplier-check {display:flex;align-items:center;gap:9px;min-height:38px;font-size:14px;font-weight:600}
+.h-admin .supplier-status {margin-top:20px}
+.h-admin .supplier-editor input[type=checkbox] {width:18px;height:18px;flex-shrink:0;accent-color:#3c5c31;margin:0}
+.h-admin .supplier-default-note {background:#f4f6ef;padding:10px 12px;border-radius:6px}
+.h-admin .supplier-branch-row {display:flex;gap:12px;border-bottom:1px solid #dce2d3;align-items:flex-start}
+.h-admin .supplier-branch-row:first-child {border-top:1px solid #dce2d3}
+.h-admin .supplier-branch-access {padding:20px 0 12px 4px}
+.h-admin .supplier-branch-row details {flex:1;min-width:0}
+.h-admin .supplier-branch-row summary {display:flex;gap:12px;align-items:center;cursor:pointer;min-height:68px;padding:12px 4px;list-style:none;font-size:14px}
+.h-admin .supplier-branch-row summary::-webkit-details-marker {display:none}
+.h-admin .supplier-branch-row summary::after {content:'';width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);margin:0 7px 4px 6px;flex-shrink:0}
+.h-admin .supplier-branch-row details[open]>summary::after {transform:rotate(225deg);margin-top:7px}
+.h-admin .supplier-branch-row summary>span:first-child {flex:1;min-width:0;overflow-wrap:anywhere}
+.h-admin .supplier-branch-row summary:hover {background:#f8faf5}
+.h-admin .supplier-branch-minimum {text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;font-size:13px}
+.h-admin .supplier-branch-fields {padding:4px 4px 20px}
+.h-admin .supplier-days {border:0;padding:0;margin:18px 0 0;min-width:0}
+.h-admin .supplier-days legend {font-size:13px;font-weight:600;margin-bottom:8px}
+.h-admin .supplier-days>div {display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.h-admin .supplier-days label {display:flex;align-items:center;gap:6px;min-height:36px;padding:4px 6px;background:#f4f6ef;border-radius:6px;font-size:12px}
+.h-admin .supplier-editor-footer {flex-shrink:0;border-top:1px solid #dce2d3;padding:14px 24px;background:#fafbf7}
+.h-admin .supplier-editor-actions {display:flex;justify-content:space-between;align-items:center;gap:12px}
+.h-admin .supplier-editor-actions>span {font-size:12px;color:#536450}
+.h-admin .supplier-editor-actions>div {display:flex;gap:10px}
+.h-admin .supplier-editor button:disabled {opacity:.6;cursor:not-allowed}
+.h-admin .supplier-editor :is(button,input,select,textarea,summary):focus-visible {outline:2px solid #527444;outline-offset:2px}
+.h-admin .supplier-editor-error {color:#a13224;font-size:13px;margin:0 0 12px}
+.h-admin .supplier-discard {padding:24px;overflow:auto}
+@media(max-width:600px) {
+ .h-admin .supplier-editor {height:94dvh;max-height:94dvh}
+ .h-admin .supplier-editor-header {padding:16px}
+ .h-admin .supplier-editor-header h3 {font-size:20px}
+ .h-admin .supplier-sections {padding:0 12px;gap:0}
+ .h-admin .supplier-sections button {flex:1;padding:12px 8px}
+ .h-admin .supplier-fields {padding:16px}
+ .h-admin .supplier-grid {grid-template-columns:minmax(0,1fr);gap:16px}
+ .h-admin .supplier-editor-footer {padding:12px 16px}
+ .h-admin .supplier-editor-actions {flex-wrap:wrap;gap:8px}
+ .h-admin .supplier-editor-actions>div {margin-left:auto}
+ .h-admin .supplier-branch-row {gap:8px}
+ .h-admin .supplier-branch-minimum {font-size:12px}
+}
+
+.h-admin .supplier-editor .h-button {border-radius:8px;font-size:14px;font-weight:600;padding:10px 16px;min-height:42px;background:#3c5c31;color:#fff;border:1px solid #3c5c31}
+.h-admin .supplier-editor .h-button.secondary {background:#fff;color:#35562c;border-color:#c9d3bf}
+.h-admin .supplier-editor .h-button:hover:not(:disabled) {filter:brightness(.96)}

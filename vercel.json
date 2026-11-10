@@ -1,0 +1,70 @@
+{
+  "functions": {
+    "api/**/*.ts": {
+      "includeFiles": "{server/**,shared/**,api/**,app-version.json,constants.ts,types.ts,utils/supplierCatalogImport.ts,utils/invoiceReconciliation.ts,utils/deliveryScheduler.ts,utils/accessControl.ts,utils/creditClaimPdf.ts,utils/pdfTheme.ts,utils/pdfFonts.ts}",
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/auth/sync-profile",
+      "destination": "/api/auth-sync"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/((?!assets/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "headers": [
+    {
+      "source": "/app-version.json",
+      "headers": [{"key": "Cache-Control", "value": "no-store, max-age=0"}]
+    },
+    {
+      "source": "/htos-update-guard.js",
+      "headers": [{"key": "Cache-Control", "value": "no-cache, must-revalidate"}]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, must-revalidate"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,173 @@
+/* Hare & Tortoise: olive greens, warm paper and restrained restaurant typography.
+   Shared presentation only; ordering, permissions and database behaviour stay separate. */
+:root {
+  --forest:#243b22;
+  --green:#3c5d35;
+  --muted:#61705d;
+  --line:#dde1d4;
+  --bg:#f5f5ef;
+  --ht-paper:#fcfcf8;
+  --ht-leaf:#e7ecd9;
+  --ht-rose:#eed6cd;
+  --ht-ink:#243521;
+  color:var(--ht-ink);
+  background:var(--bg);
+  font-synthesis:none;
+}
+body {color:var(--ht-ink);background:var(--bg)}
+::selection {background:#d8e3c3;color:#243521}
+.h-app,.h-login,.h-dialog {font-family:'DM Sans',system-ui,sans-serif}
+.h-brand {letter-spacing:-1.4px;gap:10px}
+.h-brand-wordmark {line-height:1;display:block}
+.h-brand-wordmark small {display:block;font-size:8px;letter-spacing:1.5px;font-weight:600;color:inherit;margin-top:8px;line-height:1.4}
+.h-brandmark {transform:none;gap:3px;grid-template-columns:9px 9px}
+.h-brandmark i {height:9px;background:#aec591;border-radius:2px}
+.h-brandmark i:last-child,.h-brand-dot {background:none;color:#e8c4b7}
+.h-brandmark i:last-child {background:#e8c4b7}
+.h-app .h-sidebar {background:#263e25;color:#f5f6ed}
+.h-app .h-workspace-label {color:#b6c7a9;letter-spacing:1.8px;padding-top:30px}
+.h-app .h-sidebar nav {gap:4px}
+.h-app .h-sidebar nav a {color:#d6dfcc;border-radius:7px;padding-block:11px;border:1px solid transparent;transition:background .15s,color .15s}
+.h-app .h-sidebar nav a:hover {background:#354f31;color:white}
+.h-app .h-sidebar nav a.active {background:#e6ecd8;color:#263e25;border-color:#e6ecd8;box-shadow:inset 3px 0 #b3c496}
+.h-app .h-account {border-color:#4b6043}
+.h-app .h-avatar {background:#e5c4b6;color:#304429;border-radius:50%}
+.h-app .h-account small,.h-app .h-signout,.h-app .h-sidebar-bottom>.h-app-version {color:#c2ceb7}
+.h-app .h-signout:hover {color:white}
+.h-app .h-topbar {height:62px;background:var(--ht-paper);border-color:var(--line)}
+.h-app .h-workspace-caption {color:#485c40;font-weight:600;letter-spacing:.2px}
+.h-app .h-topbar .h-app-version {font-weight:400;letter-spacing:0;color:var(--muted)}
+.h-app .h-connection {color:#506247}
+.h-app .h-connection i {background:#557c3e}
+.h-app .h-connection.offline i {background:#a87525}
+.h-app .h-content {padding-top:28px}
+.h-app .h-heading {margin-bottom:18px}
+.h-app .h-heading h1 {font-size:clamp(26px,2.4vw,34px);font-weight:500;letter-spacing:-1px;color:var(--forest);line-height:1.2}
+.h-app .h-eyebrow,.h-login .h-eyebrow {color:var(--green);font-size:10px;letter-spacing:1.8px}
+.h-app .h-heading p {font-size:13px;color:var(--muted)}
+.h-app .h-panel,.h-app .h-metric,.h-app .h-incoming-card {border-color:var(--line);border-radius:10px;box-shadow:0 2px 4px #24352104}
+.h-app .h-panel-head {padding:17px 20px;border-color:var(--line)}
+.h-app .h-panel-head h2 {font-size:16px;font-weight:600;letter-spacing:-.25px}
+.h-app .h-panel-head p {font-size:12px}
+.h-app .h-panel-foot {padding:14px 20px;border-color:var(--line)}
+.h-app .h-toolbar {padding:14px 20px;gap:10px}
+.h-app .h-metrics {gap:14px;margin:20px 0}
+.h-app .h-metric {padding:14px 18px;gap:8px;border-top:3px solid #a8bd8d}
+.h-app .h-metric:nth-child(2) {border-top-color:#cfb08e}
+.h-app .h-metric:nth-child(3) {border-top-color:#d9b8aa}
+.h-app .h-metric:nth-child(4) {border-top-color:#829778}
+.h-app .h-metric>strong {font-size:30px;font-weight:500;color:var(--forest);font-variant-numeric:tabular-nums}
+.h-app .h-metric span,.h-app .h-metric small {color:var(--muted)}
+.h-app .h-metric svg {color:#5b7846}
+.h-app .h-getstarted {background:#e9eddf;border-color:#d5dec6;border-radius:10px}
+.h-app .h-setup-steps button {background:var(--ht-paper);color:var(--forest);border-color:#d5dec6}
+.h-app .h-setup-steps button>span {background:#e2e8d3}
+.h-app .h-overview-grid {gap:18px}
+.h-app .h-activity-entry {border-color:var(--line)}
+.h-app .h-activity-icon,.h-app .h-empty-icon {background:#edf0e5;color:#567248}
+.h-app .h-activity-entry:hover,.h-app .h-radar>a:hover {background:#f8f9f3}
+.h-app .h-tip {background:#f3ede1;border-radius:7px}
+.h-app .h-tip p,.h-app .h-tip>span {color:#6c6044}
+.h-app .h-table th,.h-dialog .h-table th {background:#eef1e7;color:#4e6242;font-weight:600;letter-spacing:.25px;border-color:var(--line)}
+.h-app .h-table td,.h-dialog .h-table td {border-color:#e9ecdf;font-variant-numeric:tabular-nums}
+.h-app .h-table tbody tr:hover {background:#f8faf3}
+.h-app .h-table-wrap,.h-dialog .h-table-wrap {scrollbar-color:#a4b290 #f2f4eb}
+.h-app .h-button,.h-login .h-button,.h-dialog .h-button {background:var(--green);border-color:transparent;color:white;border-radius:7px;font-weight:600;transition:background .15s,border-color .15s,box-shadow .15s}
+.h-app .h-button:hover:not(:disabled),.h-login .h-button:hover:not(:disabled),.h-dialog .h-button:hover:not(:disabled) {background:#2b4826}
+.h-app .h-button.secondary,.h-dialog .h-button.secondary {background:#fff;color:#3c5733;border-color:#d6decb}
+.h-app .h-button.secondary:hover:not(:disabled),.h-dialog .h-button.secondary:hover:not(:disabled) {background:#f0f4e7;border-color:#a3b590}
+.h-app .h-button.quiet,.h-dialog .h-button.quiet {background:transparent;color:#3c5733}
+.h-app .h-button.quiet:hover:not(:disabled),.h-dialog .h-button.quiet:hover:not(:disabled) {background:#edf1e3}
+.h-app .h-button.danger,.h-dialog .h-button.danger {background:#fff1ec;color:#9e3524;border-color:#eac3b7}
+.h-app .h-button.danger:hover:not(:disabled),.h-dialog .h-button.danger:hover:not(:disabled) {background:#ffe5db}
+.h-text-link,.h-text-button {color:var(--green)}
+.h-app .h-tag,.h-dialog .h-tag {background:#edf0e6;color:#526246;border-radius:4px;font-weight:500}
+.h-app .h-tag.green,.h-dialog .h-tag.green {background:#e6efdb;color:#3e642c}
+.h-app .h-tag.amber,.h-dialog .h-tag.amber {background:#fcf0d9;color:#815b17}
+.h-app .h-tag.red,.h-dialog .h-tag.red {background:#fff0ec;color:#a23b28;border-color:#f2ccc2}
+.h-app input,.h-app select,.h-app textarea,.h-dialog input,.h-dialog select,.h-dialog textarea,.h-login input {border-color:#cfd8c5;color:var(--ht-ink);border-radius:7px}
+.h-app input:focus,.h-app select:focus,.h-app textarea:focus,.h-dialog input:focus,.h-dialog select:focus,.h-dialog textarea:focus,.h-login input:focus {border-color:#6e8956;box-shadow:0 0 0 3px #8ca97026}
+.h-app input::placeholder,.h-dialog input::placeholder,.h-login input::placeholder {color:#6d7967;opacity:1}
+.h-app input,.h-dialog input,.h-login input,.h-app textarea,.h-dialog textarea {caret-color:var(--forest);accent-color:var(--green)}
+.h-app .h-text-link,.h-dialog a {text-underline-offset:3px}
+.h-app .h-button:disabled,.h-dialog .h-button:disabled,.h-login .h-button:disabled {cursor:not-allowed}
+.h-app .h-button[aria-busy=true],.h-dialog .h-button[aria-busy=true] {cursor:wait}
+.h-app :focus-visible,.h-dialog :focus-visible,.h-login :focus-visible {outline:2px solid #70934f;outline-offset:3px}
+.h-app .h-tabs {gap:4px;border-bottom:1px solid var(--line)}
+.h-app .h-tabs button {border-radius:0;background:transparent;border:0;border-bottom:2px solid transparent;color:#5c6d51;padding:10px 14px;font-weight:500}
+.h-app .h-tabs button.active {background:transparent;color:#294822;border-bottom-color:#54793f;font-weight:700}
+.h-app .h-admin-nav {gap:8px}
+.h-app .h-admin-nav button {border-radius:7px;padding:10px 18px;color:#3f5836;background:white;border-color:var(--line)}
+.h-app .h-admin-nav button.active {background:var(--forest);color:white;border-color:var(--forest)}
+.h-app .h-admin {color:var(--ht-ink)}
+.h-app .h-admin .bg-emerald-600,.h-app .h-admin .bg-teal-600 {background-color:var(--green)}
+.h-app .h-admin .text-emerald-600,.h-app .h-admin .text-teal-600 {color:var(--green)}
+.h-app .h-admin .rounded-3xl,.h-app .h-admin .rounded-2xl {border-radius:10px}
+.h-app .h-admin .shadow-lg,.h-app .h-admin .shadow-xl {box-shadow:0 4px 18px #2435210c}
+.h-app .h-admin button.h-button {background:var(--green)}
+.h-app .h-admin button.h-button.secondary {background:white;color:var(--green);border-color:var(--line)}
+.h-app .h-order-card {border-radius:7px;border-color:#dce2d1;background:#fff}
+.h-app .h-order-card:focus-within {border-color:#8ea77a;background:#fbfcf7}
+.h-app .h-order-card .h-quantity {background:#f2f5ea;border-color:#dbe3ce;border-radius:6px}
+.h-app .h-order-card .h-quantity input {color:var(--forest)}
+.h-app .h-stepper button.active {color:var(--green);border-color:#719353}
+.h-app .h-stepper button.active>span,.h-app .h-stepper button.complete>span {background:#e0e9ce;color:#365526}
+.h-app .h-order-illustration {background:#e9e9d8}
+.h-app .h-order-floating {background:var(--forest);border-radius:12px}
+.h-app .h-incoming-cards {background:var(--bg);gap:12px}
+.h-app .h-incoming-card {padding:13px 16px}
+.h-app .h-incoming-card-head h2 {color:var(--forest);font-size:17px}
+.h-app .h-incoming-card-actions {border-color:var(--line);margin-top:9px;padding-top:8px}
+.h-app .h-incoming-meta {margin-top:8px;gap:8px 16px}
+.h-app .h-order-card.selected {background:#f0f4e7;border-color:#8fa877;box-shadow:inset 3px 0 var(--green)}
+.h-app .h-stepper button:disabled {opacity:.65}
+.h-app .h-check-steps {margin-bottom:16px}
+.h-app .h-heading p {margin-top:8px;line-height:1.55}
+.h-dialog .h-review-meta {gap:12px;padding:14px}
+.h-dialog .h-field small {line-height:1.5}
+.h-app .h-check-steps {gap:7px}
+.h-app .h-check-steps span {background:#edf1e3;color:#4d663e;border:1px solid #dde4d1;border-radius:5px}
+.h-dialog {border:1px solid #dce2d2;border-radius:12px;box-shadow:0 24px 80px #192d2430}
+.h-dialog::backdrop {background:#18261377;backdrop-filter:blur(3px)}
+.h-dialog .h-dialog-inner>header h2 {font-weight:500;letter-spacing:-.5px;color:var(--forest)}
+.h-dialog .h-review-meta,.h-dialog .h-order-detail-status {background:#f3f6ec;border-color:var(--line);border-radius:8px}
+.h-dialog .h-dialog-foot {border-color:var(--line)}
+.h-notice:not(.error):not(.success) {background:#f1f4e9;border-color:#dce4cf;color:#425638}
+.h-notice.success {background:#e8f1de;color:#365c29;border-color:#c7d8b3}
+.h-notice.error {background:#fff0e9;color:#963722;border-color:#edc4b5}
+.h-login .h-login-story {background:#263e25;isolation:isolate}
+.h-login .h-login-story:before {content:'';position:absolute;inset:auto -110px -210px auto;width:520px;height:520px;border:1px solid #55704a;border-radius:50%;z-index:0;box-shadow:0 0 0 55px #314a2b,0 0 0 56px #49643d,0 0 0 110px #2c4428}
+.h-login .h-login-story>div,.h-login .h-login-story>footer {z-index:1}
+.h-login .h-login-story .h-orbit {display:none}
+.h-login .h-login-story .h-eyebrow {color:#d5e1b7}
+.h-login .h-login-story h1 {font-weight:400;letter-spacing:-1.5px;line-height:1.12;color:white}
+.h-login .h-login-story h1 span {color:#ecc7b7}
+.h-login .h-login-story p,.h-login .h-login-story footer {color:#e0e5d5}
+.h-login .h-login-steps i {border-color:#9bb18a;color:#e4c4b6}
+.h-login .h-login-form {background:var(--ht-paper)}
+.h-login .h-login-card h2 {color:var(--forest);font-weight:500;letter-spacing:-.7px}
+.h-login .h-login-help {color:#62715b}
+.h-app .h-bottom-nav {background:var(--ht-paper);border-color:var(--line)}
+.h-app .h-bottom-nav a.active {color:#345b27;background:#edf2e3}
+@media(min-width:901px) and (max-height:700px){
+  .h-app .h-sidebar {padding-top:20px;padding-bottom:12px}
+  .h-app .h-workspace-label {padding-top:20px;padding-bottom:12px}
+  .h-app .h-sidebar nav a {padding-block:9px}
+  .h-app .h-sidebar-bottom {padding-top:12px}
+  .h-app .h-account {padding-top:14px}
+  .h-app .h-signout {margin-top:10px}
+}
+@media(max-width:900px){.h-app .h-topbar{height:58px}}
+@media(max-width:620px){
+  .h-app .h-content {padding-top:20px}
+  .h-app .h-heading h1 {font-size:27px}
+  .h-app .h-metric {padding:14px 12px}.h-app .h-metric>strong{font-size:25px}
+  .h-app .h-panel-head {padding:15px 16px}.h-app .h-toolbar{padding:12px 16px}
+  .h-app .h-incoming-card {padding:14px}
+  .h-app .h-incoming-card-actions .h-button {min-height:44px}
+  .h-app .h-check-steps {display:grid;grid-template-columns:1fr 1fr}
+  .h-app .h-check-steps span {font-size:11px;padding:7px 8px}
+  .h-app .h-heading {margin-bottom:16px}
+  .h-login .h-login-mobile .h-brand-dot {color:#9d634c}
+}
+@media(prefers-reduced-motion:reduce){.h-app *,.h-dialog *,.h-login *{scroll-behavior:auto;transition:none!important}}

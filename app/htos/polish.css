@@ -1,0 +1,60 @@
+/* finesse · product · Hare & Tortoise · restrained / practical / compact
+   Existing olive-and-paper identity; focus and workflow polish, no imagery. */
+html {scrollbar-width:thin;scrollbar-color:#8b9b80 #f5f5ef}
+.h-app *, .h-dialog * {scrollbar-width:thin;scrollbar-color:#8b9b80 transparent}
+::-webkit-scrollbar {width:7px;height:7px}
+::-webkit-scrollbar-thumb {background:#8b9b80;border-radius:8px}
+::-webkit-scrollbar-track {background:transparent}
+.h-app .h-order-catalogue .h-quantity {width:50px;min-height:50px;padding:4px 2px 2px;overflow:visible;border-radius:7px;color:var(--muted);gap:0}
+.h-app .h-order-catalogue .h-quantity input {height:32px;min-height:32px;line-height:1.2;padding:3px 1px;font-size:18px;color:var(--forest);caret-color:var(--forest);border:0;border-radius:3px;background:transparent;box-shadow:none;outline:none}
+.h-app .h-order-catalogue .h-quantity input:focus {outline:none;box-shadow:none;border:0;background:transparent}
+.h-app .h-order-catalogue .h-quantity input::placeholder {color:var(--muted);opacity:1}
+.h-app .h-order-catalogue .h-quantity input::selection {background:var(--forest);color:var(--ht-paper)}
+.h-app .h-order-catalogue .h-quantity:focus-within {outline:2px solid var(--green);outline-offset:2px;background:var(--ht-paper)}
+.h-app .h-order-catalogue .h-quantity.has-quantity {background:var(--ht-leaf);border-color:var(--green);color:var(--forest)}
+.h-app .h-basket-dock {width:min(480px,calc(100vw - 120px));max-width:100%;padding:12px;gap:10px;border-radius:12px;display:grid;grid-template-columns:auto 1fr;background:var(--forest)}
+.h-app .h-basket-dock .h-basket-total {grid-column:1/-1;min-width:0;padding:0;font-size:14px}
+.h-app .h-basket-dock>.h-button {min-height:44px;border-radius:7px;white-space:normal}
+.h-app .h-basket-dock>.h-button:last-child {background:var(--ht-leaf);color:var(--forest);font-weight:700;border-color:var(--ht-leaf);justify-content:center}
+.h-app .h-basket-dock>.h-button:last-child:hover {background:var(--ht-paper)}
+.h-app .h-basket-dock .h-minimum-warning {font-size:11px;line-height:1.4}
+.h-app .h-settings-groups {display:flex;flex-wrap:wrap;gap:6px;padding:5px;border:1px solid var(--line);background:var(--ht-leaf);border-radius:9px;margin:0 0 12px;width:fit-content;max-width:100%}
+.h-app .h-settings-groups button {min-height:44px;padding:9px 20px;border:0;border-radius:6px;background:transparent;color:var(--forest);font-size:14px;font-weight:600;cursor:pointer}
+.h-app .h-settings-groups button.active {background:var(--ht-paper);box-shadow:0 1px 3px #243b2220}
+.h-app .h-settings-groups button:focus-visible {outline:2px solid var(--green);outline-offset:1px}
+.h-app .h-settings-groups + .h-tabs {display:flex;flex-wrap:wrap;overflow:visible;gap:4px;margin-bottom:22px}
+.h-app .h-settings-groups + .h-tabs button {min-height:44px;padding:10px 14px;font-size:13px;white-space:normal}
+.h-transfer-list {padding:0 20px}
+.h-transfer-row {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:18px 0}
+.h-transfer-row + .h-transfer-row {border-top:1px solid var(--line)}
+.h-transfer-row>div:first-child {flex:1;min-width:200px}
+.h-transfer-row h3 {font-size:15px;margin:0 0 5px;color:var(--forest)}
+.h-transfer-row p {font-size:12px;line-height:1.5;margin:0;color:var(--muted);max-width:430px}
+.h-transfer-actions {display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.h-transfer-actions .h-button {font-size:12px;min-height:44px;padding:9px 12px}
+.h-mailbox-link {display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:13px;margin:16px 0}
+.h-app .h-catalogue-header {display:grid;gap:18px;padding:20px;margin-bottom:18px;background:var(--ht-paper);border:1px solid var(--line);border-radius:10px}
+.h-app .h-catalogue-controls {display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;align-items:center;min-width:0}
+.h-app .h-catalogue-controls>* {min-width:0;width:100%;margin:0}
+.h-app .h-catalogue-controls>*:nth-child(-n+2) {grid-column:span 3}
+.h-app .h-catalogue-controls>button {grid-column:span 2}
+.h-app .h-catalogue-controls>select,.h-app .h-catalogue-controls input,.h-app .h-catalogue-controls>button {min-height:44px;font-size:13px}
+.h-app .h-catalogue-controls>button {justify-content:center;white-space:normal}
+.h-app .h-panel:has(.h-transfer-list),.h-app .h-panel:has(.h-transfer-list)+.h-panel {margin-bottom:18px}
+@media(max-width:900px) {
+ .h-app .h-catalogue-controls {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .h-app .h-catalogue-controls>*:nth-child(-n+2) {grid-column:span 2}
+ .h-app .h-catalogue-controls>button {grid-column:auto}
+}
+@media(max-width:620px) {
+ .h-app .h-basket-dock {width:auto;left:12px;right:12px;padding:10px;gap:8px}
+ .h-app .h-basket-dock>.h-button {font-size:12px;padding:8px 10px}
+ .h-app .h-settings-groups {width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .h-app .h-settings-groups button {padding:8px}
+ .h-app .h-catalogue-controls {grid-template-columns:1fr}
+ .h-app .h-catalogue-controls>*:nth-child(-n+2) {grid-column:auto}
+ .h-app .h-catalogue-header {padding:14px}
+ .h-transfer-row>div:first-child {min-width:0;flex-basis:100%}
+ .h-transfer-actions {width:100%;display:grid;grid-template-columns:1fr 1fr}
+ .h-transfer-actions .h-button {white-space:normal}
+}

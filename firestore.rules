@@ -1,0 +1,260 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Help reports and screenshots are private. Access goes through owner-checked server actions.
+    match /help_issues/{record=**} { allow read, write: if false; }
+    match /help_limits/{record=**} { allow read, write: if false; }
+
+    // --- HELPER FUNCTIONS ---
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Fetches the user profile and strictly requires it to exist and be active.
+    function getActiveUserData() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return (isSignedIn() && exists(path) && get(path).data.active == true) ? get(path).data : null;
+    }
+
+    function isActiveUser() {
+      return getActiveUserData() != null;
+    }
+
+    function hasActiveRole(role) {
+      let data = getActiveUserData();
+      return data != null && data.role == role;
+    }
+
+    function isAdmin() {
+      let user = getActiveUserData();
+      return user != null && user.role in ['CREATOR', 'GM'];
+    }
+
+    function isManager() {
+      return hasActiveRole('MANAGER');
+    }
+
+    function canAction(action) {
+      let user=getActiveUserData();
+      let settingsPath=/databases/$(database)/documents/settings/role_permissions;
+      let defaults=user != null && user.role == 'MANAGER' ? ['create_orders','submit_orders','edit_drafts','delete_drafts','scan_invoices','manage_new_items','reject_price_changes','view_prices','view_received_orders'] : ['create_orders','submit_orders','edit_drafts','delete_drafts','scan_invoices','view_prices','view_received_orders'];
+      let roleMap=exists(settingsPath) ? get(settingsPath).data.get('map',{}) : {};
+      let custom=user != null && (user.get('permissionMode','') == 'CUSTOM' || (user.get('permissionMode','') != 'INHERITED' && user.get('customPermissions',[]).size() > 0));
+      return user != null && (isAdmin() || (custom ? action in user.get('customPermissions',[]) : action in roleMap.get(user.role,user.role in ['MANAGER','STAFF'] ? defaults : [])));
+    }
+    function supplierAuthorized(supplierId) {
+      let user=getActiveUserData();
+      return user != null && (isAdmin() || user.get('allSuppliers',false) == true || (('supplierIds' in user) ? supplierId in user.supplierIds : user.get('allSuppliers',true) != false));
+    }
+
+    function isIncomingBranchAuthorized(branchId) {
+      let user=getActiveUserData();
+      let branchPath=/databases/$(database)/documents/branches/$(branchId);
+      return user != null && branchId != '' && exists(branchPath) &&
+        get(branchPath).data.get('active',false) == true && get(branchPath).data.get('actsAsSupplier',false) == true &&
+        (user.role == 'CREATOR' || user.get('branchId','') == branchId || branchId in user.get('branchIds',[]));
+    }
+    // Supplier access for ordering does not grant access to fulfil its orders.
+    function isLinkedSupplier(supplierId) {
+      let supplierPath = /databases/$(database)/documents/suppliers/$(supplierId);
+      let branchId=exists(supplierPath) ? get(supplierPath).data.get('linkedBranchId','') : supplierId;
+      return isIncomingBranchAuthorized(branchId);
+    }
+
+    // --- COLLECTION RULES ---
+
+    // 1. Master Data (Read: Active Users | Write: Active Admins & Managers)
+    match /products/{doc} {
+      allow read: if canAction('view_prices') && supplierAuthorized(resource.data.supplierId);
+      allow create: if (canAction('manage_products') || canAction('manage_new_items')) && supplierAuthorized(request.resource.data.supplierId);
+      allow delete: if canAction('manage_products') && supplierAuthorized(resource.data.supplierId);
+      allow update: if canAction('manage_products') && supplierAuthorized(resource.data.supplierId) && request.resource.data.supplierId == resource.data.supplierId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['casePrice','packPrice']);
+    }
+    match /categories/{doc} {
+      allow read: if isActiveUser();
+      allow write: if canAction('manage_categories');
+    }
+    match /suppliers/{doc} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+    match /branches/{doc} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+    match /departments/{doc} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+    match /roles/{doc} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+    match /settings/{doc} {
+      // Disallow client access to sensitive credentials, legacy email secrets, or storing plaintext passwords
+      allow read: if isActiveUser() && doc != 'email' && doc != 'smtp';
+      allow create, update: if isAdmin() &&
+                               doc != 'email' &&
+                               doc != 'smtp' &&
+                               (!('smtpPass' in request.resource.data) || request.resource.data.smtpPass == '');
+      allow delete: if isAdmin();
+    }
+
+    // Price Monitoring & Invoices
+    // Strictly enforces who proposes, reviews, approves, and rejects price changes and new items.
+    match /price_change_notices/{doc} {
+      allow read: if canAction('view_prices') && supplierAuthorized(resource.data.supplierId);
+      // Prices and approval decisions are created atomically by the server.
+      allow create: if false;
+      allow update: if canAction('reject_price_changes') && supplierAuthorized(resource.data.supplierId) &&
+                       resource.data.status == 'PENDING' && request.resource.data.status == 'REJECTED' &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','rejectionReason','reviewedByUserId','reviewedByUserName','reviewedAt']) &&
+                       request.resource.data.reviewedByUserId == request.auth.uid &&
+                       request.resource.data.rejectionReason is string && request.resource.data.rejectionReason.size()>0;
+      // History Protection: Approved or rejected notices cannot be deleted; only pending can be cancelled by admins
+      allow delete: if isAdmin() && resource.data.status == 'PENDING';
+    }
+
+    match /new_item_notices/{doc} {
+      allow read: if canAction('view_prices') && supplierAuthorized(resource.data.supplierId);
+      allow create: if isActiveUser() &&
+                       request.resource.data.uploadedByUserId == request.auth.uid &&
+                       request.resource.data.status == 'PENDING' &&
+                       request.resource.data.id == doc;
+      allow update: if isActiveUser() &&
+                       (isAdmin() || isManager()) &&
+                       resource.data.status == 'PENDING' &&
+                       (request.resource.data.status in ['ADDED', 'LINKED', 'REJECTED', 'PENDING']) &&
+                       request.resource.data.id == resource.data.id &&
+                       request.resource.data.supplierId == resource.data.supplierId &&
+                       request.resource.data.uploadedByUserId == resource.data.uploadedByUserId &&
+                       (!('reviewedByUserId' in request.resource.data) || request.resource.data.reviewedByUserId == request.auth.uid);
+      allow delete: if isAdmin() && resource.data.status == 'PENDING';
+    }
+
+    // Append-only Price History Audit Trail: Decisions cannot be forged, edited, or deleted
+    match /price_history/{doc} {
+      allow read: if canAction('view_prices') && supplierAuthorized(resource.data.supplierId);
+      allow create: if false;
+      allow update, delete: if false;
+    }
+
+    // 2. Users
+    // Direct client creations and deletions are completely forbidden.
+    // Route all user account administration through the authorized server API.
+    match /users/{userId} {
+      // An authenticated user may read their own profile document to check active/role status.
+      // Reading other user accounts requires an active user profile.
+      allow read: if isSignedIn() && (request.auth.uid == userId || isActiveUser());
+      allow create: if false;
+      allow delete: if false;
+      // Allow only active users to update their own displayName.
+      // All administrative fields (role, branchId, active, id, username) are frozen against client modification.
+      allow update: if isActiveUser() &&
+        request.auth.uid == userId &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.username == resource.data.username &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.active == resource.data.active &&
+        // branchId is optional for global administrators. The changed-key
+        // allowlist also freezes every branch/supplier scope field, even absent ones.
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'updatedAt']) &&
+        request.resource.data.displayName is string &&
+        request.resource.data.displayName.size() > 0 &&
+        request.resource.data.displayName.size() <= 100;
+    }
+
+    // Administrative audit/lock/credential collections: completely inaccessible to browser clients
+    match /_user_admin_locks/{doc} {
+      allow read, write: if false;
+    }
+    match /_branch_email_accounts/{doc} {
+      allow read, write: if false;
+    }
+    match /_email_send_limits/{doc} {
+      allow read, write: if false;
+    }
+
+    // 3. Orders
+    // Enforces Role / Resource / Action / Field Matrix for order lifecycle and prevents field tampering.
+    function isBranchAuthorized(branchId) {
+      let user = getActiveUserData();
+      return user != null && branchId is string && branchId.size() > 0 &&
+             (user.role in ['CREATOR', 'GM'] || user.get('allBranches', false) == true ||
+              branchId in user.get('branchIds', []) || user.get('branchId', '') == branchId);
+    }
+
+    function isOutgoingOrderAuthorized(data) {
+      let user = getActiveUserData();
+      return user != null &&
+             (user.role in ['CREATOR', 'GM'] || user.get('allBranches', false) == true ||
+              (data.branchId != '' && (data.branchId in user.get('branchIds', []) || user.get('branchId', '') == data.branchId))) &&
+             (user.role in ['CREATOR', 'GM'] || user.get('allSuppliers', false) == true ||
+              (('supplierIds' in user) ? data.supplierId in user.supplierIds : user.get('allSuppliers', true) != false));
+    }
+
+    function orderIdentityUnchanged() {
+      return request.resource.data.id == resource.data.id &&
+             request.resource.data.orderedByUserId == resource.data.orderedByUserId &&
+             request.resource.data.branchId == resource.data.branchId &&
+             request.resource.data.supplierId == resource.data.supplierId &&
+             request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function orderSnapshotsUnchanged() {
+      return (!('branchNameSnapshot' in resource.data) || request.resource.data.branchNameSnapshot == resource.data.branchNameSnapshot) &&
+             (!('supplierNameSnapshot' in resource.data) || request.resource.data.supplierNameSnapshot == resource.data.supplierNameSnapshot) &&
+             (!('orderedByNameSnapshot' in resource.data) || request.resource.data.orderedByNameSnapshot == resource.data.orderedByNameSnapshot);
+    }
+
+    function isValidOrderStatusTransition() {
+      let oldStatus = resource.data.status;
+      let newStatus = request.resource.data.status;
+      return (newStatus == 'DRAFT' || newStatus == 'PLACED') &&
+             (oldStatus == 'DRAFT' || (oldStatus == 'PLACED' && newStatus == 'PLACED'));
+    }
+
+    // Menu records and original files use authenticated server actions with separate permissions.
+    match /menu_recipes/{record=**} { allow read, write: if false; }
+    match /menu_recipe_codes/{record=**} { allow read, write: if false; }
+    match /menu_product_specs/{record=**} { allow read, write: if false; }
+    match /menu_product_evidence/{record=**} { allow read, write: if false; }
+    match /menu_requests/{record=**} { allow read, write: if false; }
+
+    match /orders/{orderId} {
+      // The server validates the seven-day window, quantities, prices and permissions.
+      allow create: if false;
+
+      // Authors lose access when their assignment is revoked, just like other branch users.
+      allow read: if canAction('view_prices') && (isAdmin() ||
+                     isOutgoingOrderAuthorized(resource.data) ||
+                     (canAction('view_received_orders') && isLinkedSupplier(resource.data.supplierId)));
+
+      // Update: Immutable identity protected, workflow states enforced, supplier restricted
+      allow update: if isActiveUser() &&
+                       orderIdentityUnchanged() &&
+                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['invoiceVerification','creditNoteClaim']) &&
+                       isValidOrderStatusTransition() &&
+                       (
+                         // Historical items and dispatch are writable only by the validated server workflow.
+                         (resource.data.status == 'PLACED' && orderSnapshotsUnchanged() &&
+                           ((canAction('submit_orders') && isOutgoingOrderAuthorized(resource.data) &&
+                             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['emailStatus','emailError','emailSentAt','emailRetryCount','whatsAppStatus'])) ||
+                            (canAction('view_received_orders') && isLinkedSupplier(resource.data.supplierId) &&
+                             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deliveryEmailStatus','deliveryEmailError','deliveryEmailSentAt','deliveryEmailRetryCount']))))
+                       );
+
+      // Delete: Strictly restricted to DRAFT orders. Placed orders cannot be deleted by clients.
+      allow delete: if canAction('delete_drafts') &&
+                       resource.data.status == 'DRAFT' &&
+                       isOutgoingOrderAuthorized(resource.data) &&
+                       (
+                         isAdmin() ||
+                         isManager() ||
+                         (resource.data.orderedByUserId == request.auth.uid)
+                       );
+    }
+  }
+}

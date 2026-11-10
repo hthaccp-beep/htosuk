@@ -1,0 +1,64 @@
+/* finesse · component: supplier-file-review · product · inherited Hare & Tortoise tokens */
+.h-supplier-file{font-size:13px;min-width:0}.h-file-intro{display:grid;gap:5px;overflow-wrap:anywhere}.h-file-intro span,.h-file-help{color:var(--muted)}
+.h-file-mapping,.h-file-source{border:1px solid var(--line);border-radius:8px;padding:12px;margin:12px 0}.h-file-mapping summary,.h-file-source summary{cursor:pointer;font-weight:600}.h-file-mapping>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}.h-file-source iframe{width:100%;height:55vh;border:0}.h-file-source img{max-width:100%;max-height:55vh;object-fit:contain}
+.h-supplier-file label{font-size:13px}.h-file-mapping label,.h-file-match>label,.h-file-prices>label{display:grid;gap:6px;min-width:0}.h-supplier-file select,.h-supplier-file input:not([type=checkbox]){width:100%;min-width:0;font-size:13px;padding:8px;min-height:40px}.h-supplier-file input[type=checkbox]{width:18px;height:18px;flex:none;accent-color:var(--green)}
+.h-file-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:14px 0}.h-file-tools label{display:flex;align-items:center;gap:8px;margin-left:auto}.h-file-tools .h-button{font-size:12px;min-height:40px;padding:8px 12px}.h-file-tools>span{margin-right:auto}
+.h-file-rows{border:0;padding:0;min-width:0}.h-file-row{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:14px;background:var(--ht-paper)}.h-file-row-head{display:flex;justify-content:space-between;gap:12px;margin-bottom:12px}.h-file-row-head label,.h-file-flags label,.h-file-check{display:flex;align-items:center;gap:8px}.h-file-row-head>span{font-size:12px;color:var(--muted)}.h-file-match{display:grid;grid-template-columns:1fr 1fr;gap:20px}.h-file-match>div{display:grid;align-content:start;gap:5px}.h-file-match small{font-size:11px;color:var(--muted)}.h-file-match span{font-size:12px}.h-file-prices{display:grid;grid-template-columns:150px 150px minmax(0,1fr);gap:14px;margin-top:14px}.h-file-prices small{color:var(--muted)}.h-file-prices input{text-align:right;font-variant-numeric:tabular-nums}.h-file-flags p{margin:0 0 6px;color:var(--forest);font-weight:600;font-size:12px}.h-file-flags label{margin-top:10px}.h-file-error{color:var(--file-error)!important}.h-file-notice{background:var(--ht-paper);border:1px solid var(--line);padding:12px;overflow-wrap:anywhere}.h-file-notice span{display:block;margin-top:8px}.h-file-check{border-block:1px solid var(--line);padding:16px 0;align-items:flex-start;line-height:1.6}.h-file-help{line-height:1.6}.h-file-price-summary{overflow-x:auto;margin:14px 0}.h-file-price-summary table{width:100%;border-collapse:collapse;font-size:13px}.h-file-price-summary th,.h-file-price-summary td{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:top}.h-file-price-summary small{display:block;color:var(--muted);margin-top:5px}
+@media(max-width:900px){.h-file-prices{grid-template-columns:repeat(2,minmax(0,1fr))}.h-file-flags{grid-column:1/-1}.h-file-mapping>div{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.h-file-match{grid-template-columns:minmax(0,1fr);gap:12px}.h-file-mapping>div{grid-template-columns:minmax(0,1fr)}.h-file-row-head{flex-wrap:wrap}.h-file-tools label{margin-left:0}.h-supplier-file .h-dialog-foot{flex-wrap:wrap}.h-supplier-file .h-dialog-foot .h-button{white-space:nowrap}.h-file-prices input,.h-file-match select{min-height:44px}}
+
+.h-supplier-file,.h-file-price-summary{--file-error:#a23b28}.h-supplier-file :focus-visible{outline:2px solid var(--green);outline-offset:2px}.h-supplier-file .h-button:active{transform:translateY(1px)}.h-file-rows>legend{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}@media(hover:hover){.h-file-row:hover{border-color:var(--green)}}
+
+/* finesse · component: import-verification · product · inherited tokens */
+.h-file-verification{padding:12px;background:var(--ht-paper);border:1px solid var(--line);border-radius:8px;margin:12px 0}.h-file-verification p{margin:6px 0 0}
+.h-file-dialog .h-dialog-inner{display:flex;flex-direction:column;overflow:hidden}
+.h-file-dialog .h-dialog-inner>header{position:static;flex:none}
+.h-file-dialog .h-supplier-file{overflow:auto;min-height:0;scroll-padding-bottom:220px}
+.h-file-footer{position:sticky;bottom:0;background:var(--ht-paper);border-top:1px solid var(--line);padding:10px 12px 6px;z-index:2}
+.h-file-footer .h-dialog-foot{position:static;background:transparent;margin:8px 0 0;padding:0;border:0;gap:8px;flex-wrap:wrap}
+.h-file-footer .h-file-check{border:0;margin:6px 0;padding:0;font-size:12px}
+.h-file-footer .h-file-next{margin:0;font-weight:600;font-size:12px}
+.h-file-footer .h-button{min-height:44px;padding:10px 12px;font-size:12px;white-space:nowrap}
+.h-file-footer .h-button:disabled{opacity:.5;cursor:not-allowed}
+.h-file-verify-status{margin:6px 0 0;min-height:1.5em;color:var(--muted);font-size:12px}
+@media(max-width:620px){.h-file-footer{padding:8px}.h-file-footer .h-dialog-foot{justify-content:flex-start}.h-file-footer .h-file-check{line-height:1.4}.h-file-dialog .h-supplier-file{scroll-padding-bottom:280px}}
+
+/* HTOS catalogue stays fixed; supplier selection is the editable side. */
+.h-file-product{overflow-wrap:anywhere}
+.h-file-picker label{display:grid;gap:5px}.h-file-picker{min-width:0}.h-file-picker>span{color:var(--muted)}
+.h-file-tools>input{flex:1 1 220px;max-width:340px}.h-file-match{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)}
+@media(max-width:620px){.h-file-match{grid-template-columns:minmax(0,1fr)}.h-file-tools>input{max-width:none}}
+
+/* finesse · component: matched-price-list · compact review with one final acknowledgement */
+.h-file-compact{scroll-padding-bottom:120px!important}
+.h-file-group-title{display:flex;align-items:center;gap:8px;font-size:16px;margin:18px 0 10px}
+.h-file-group-title span{font-size:12px;font-weight:500;background:var(--ht-paper);border:1px solid var(--line);border-radius:6px;padding:3px 7px}
+.h-file-match-table{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+.h-file-match-table table{width:100%;min-width:850px;border-collapse:collapse;table-layout:fixed}
+.h-file-match-table th,.h-file-match-table td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top;font-size:12px;overflow-wrap:anywhere}
+.h-file-match-table th{background:var(--ht-paper);font-weight:600}
+.h-file-match-table th:nth-child(1){width:34px}.h-file-match-table th:nth-child(2){width:29%}.h-file-match-table th:nth-child(3){width:26%}.h-file-match-table th:nth-child(4),.h-file-match-table th:nth-child(5){width:12%}
+.h-file-match-table td>small,.h-file-match-table td>span,.h-file-match-table td>strong{display:block;margin-bottom:4px}
+.h-file-match-table small{font-size:11px;color:var(--muted)}
+.h-file-match-table td input:not([type=checkbox]){font-size:12px;min-height:36px;padding:6px;margin-bottom:4px}
+.h-file-match-table td:nth-child(4) input,.h-file-match-table td:nth-child(5) input{text-align:right;font-variant-numeric:tabular-nums}
+.h-file-link{border:0;background:transparent;color:var(--green);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px 0;font:inherit}
+.h-file-link:disabled{opacity:.5;cursor:not-allowed}.h-file-link:active{transform:translateY(1px)}
+@media(hover:hover){.h-file-link:hover{color:var(--forest)}}
+.h-file-warning summary{color:var(--file-error);cursor:pointer;font-weight:600}.h-file-warning p,.h-file-review-warning{font-size:12px;margin:6px 0;color:var(--file-error)}
+.h-file-change{display:flex;gap:12px;align-items:end;padding:8px}.h-file-change .h-file-picker{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1}
+.h-file-new-name{display:block;margin-top:6px}.h-file-price-summary del{color:var(--muted)}
+.h-file-compact .h-file-footer .h-dialog-foot{align-items:center}.h-file-compact .h-file-footer .h-file-help{margin-right:auto;font-size:11px}
+.h-file-compact .h-file-footer{padding:10px 8px}
+@media(max-width:620px){.h-file-change,.h-file-change .h-file-picker{display:block}.h-file-change label{margin-bottom:8px}.h-file-compact{scroll-padding-bottom:150px!important}}
+.h-file-compact>.h-file-intro{margin:4px 0 8px}.h-file-compact>p{margin:8px 0}
+.h-file-compact .h-file-mapping{margin:8px 0;padding:8px 10px}.h-file-compact .h-file-tools{margin:8px 0}
+.h-file-compact .h-file-group-title{margin:12px 0 8px}
+.h-file-final-review .h-dialog-foot{flex-wrap:wrap}
+.h-file-final-review .h-dialog-foot .h-file-check{flex-basis:100%;padding:4px 0;margin:0 0 4px;border:0;font-size:12px}
+
+/* Product-file toolbar: the three actions stay together at every screen size. */
+.h-editor-file-group{margin-left:auto;max-width:560px;min-width:0}.h-editor-file-group .h-editor-file-actions{margin-left:0;justify-content:flex-end}.h-file-short-help{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:baseline;gap:4px 8px;margin-top:6px;font-size:11px;line-height:1.5;color:var(--muted)}.h-file-short-help button{border:0;padding:2px 0;background:transparent;color:var(--green);font:inherit;text-decoration:underline;cursor:pointer}.h-file-short-help button:focus-visible{outline:2px solid var(--green);outline-offset:3px}.h-file-short-help button:active{transform:translateY(1px)}
+@media(hover:hover){.h-file-short-help button:hover{color:var(--forest)}}
+@media(max-width:900px){.h-editor-file-group{margin-left:0;max-width:none}.h-editor-file-group .h-editor-file-actions,.h-file-short-help{justify-content:flex-start}}
+@media(max-width:620px){.h-editor-file-group{width:100%}.h-editor-file-group .h-editor-file-actions{display:flex;flex-wrap:nowrap;gap:6px}.h-editor-file-group .h-editor-file-actions .h-button{padding:8px 9px;min-height:44px;font-size:12px}}
