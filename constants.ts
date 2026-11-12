@@ -94,6 +94,7 @@ export const AVAILABLE_PERMISSIONS: PermissionDefinition[] = [
 
   // V3.11.0: Invoice & Price Monitoring Permissions
   { id: 'scan_invoices', label: 'Scan Invoices', description: 'Take photos or upload invoices & delivery notes', group: 'Operations' },
+  { id: 'review_invoices', label: 'Review invoices (Accounts)', description: 'Approve invoice differences, claims and credit notes within assigned scope. Requires price access.', group: 'Operations' },
   { id: 'view_price_changes', label: 'View Price Changes', description: 'View detected price discrepancies and review queues', group: 'Operations' },
   { id: 'approve_price_changes', label: 'Approve Price Changes', description: 'Approve new prices and update official catalog prices', group: 'Administration' },
   { id: 'reject_price_changes', label: 'Reject Price Changes', description: 'Reject proposed price changes with reasons', group: 'Administration' },

@@ -1,5 +1,9 @@
 {
   "functions": {
+    "api/admin/invoice-reading.ts": {
+      "includeFiles": "{server/**,shared/**,api/**,app-version.json,constants.ts,types.ts,utils/supplierCatalogImport.ts,utils/invoiceReconciliation.ts,utils/deliveryScheduler.ts,utils/accessControl.ts,utils/creditClaimPdf.ts,utils/pdfTheme.ts,utils/pdfFonts.ts}",
+      "maxDuration": 120
+    },
     "api/**/*.ts": {
       "includeFiles": "{server/**,shared/**,api/**,app-version.json,constants.ts,types.ts,utils/supplierCatalogImport.ts,utils/invoiceReconciliation.ts,utils/deliveryScheduler.ts,utils/accessControl.ts,utils/creditClaimPdf.ts,utils/pdfTheme.ts,utils/pdfFonts.ts}",
       "maxDuration": 30

@@ -45,6 +45,66 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "_invoice_cases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "order": "ASCENDING",
+          "fieldPath": "branchId"
+        },
+        {
+          "order": "ASCENDING",
+          "fieldPath": "supplierId"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "_invoice_cases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "order": "ASCENDING",
+          "fieldPath": "branchId"
+        },
+        {
+          "order": "ASCENDING",
+          "fieldPath": "status"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "_invoice_cases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "order": "ASCENDING",
+          "fieldPath": "supplierId"
+        },
+        {
+          "order": "ASCENDING",
+          "fieldPath": "status"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "_invoice_cases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "order": "ASCENDING",
+          "fieldPath": "branchId"
+        },
+        {
+          "order": "ASCENDING",
+          "fieldPath": "supplierId"
+        },
+        {
+          "order": "ASCENDING",
+          "fieldPath": "status"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

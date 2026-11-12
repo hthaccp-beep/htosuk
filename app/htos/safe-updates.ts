@@ -27,7 +27,7 @@ export function startSafeUpdates(options: Options) {
     versionRequest = abort;
     const timer = setTimeout(() => abort.abort(), 8000);
     try {
-      const response = await fetch('/app-version.json', {cache: 'no-store', credentials: 'omit', signal: abort.signal});
+      const response = await fetch('/app-version.json', {cache: 'no-store', credentials: 'same-origin', signal: abort.signal});
       const value = response.ok ? await response.json() : null;
       if (!value || typeof value.version !== 'string' || !value.version.trim() || value.version.length > 64) throw new Error('invalid release');
       return value.version as string;

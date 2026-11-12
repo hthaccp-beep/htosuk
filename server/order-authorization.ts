@@ -83,6 +83,11 @@ export function checkUserActionPermission(
   rolePermissionsMap?: Record<string, string[]>
 ): boolean {
   if (!user || user.active !== true) return false;
+  if (action === 'review_invoices') {
+    if (user.role === 'CREATOR') return true;
+    const custom = user.permissionMode === 'CUSTOM' || (user.permissionMode !== 'INHERITED' && !!user.customPermissions?.length);
+    return (custom ? user.customPermissions : rolePermissionsMap?.[user.role])?.includes(action) === true;
+  }
   if (user.role === 'CREATOR' || user.role === 'GM') return true;
 
   const isCustom = user.permissionMode === 'CUSTOM' ||

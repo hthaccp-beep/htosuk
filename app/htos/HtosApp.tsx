@@ -73,7 +73,7 @@ const navigation: {path:string;label:string;icon:React.ElementType;permission?:P
   {path:'/reports',label:'Insights',icon:LineChart,permission:'view_reports'},
   {path:'/settings',label:'Settings',icon:Settings2,permission:'admin_access'},
 ];
-function Guard({permission,children}:{permission:Permission;children:React.ReactNode}) {const {currentUser:user,branches}=useAppStore();const assigned=permission!=='view_received_orders'||!!user&&incomingSupplierBranches(user,branches).length>0;return assigned&&can(user,permission)?<>{children}</>:<Empty title="This area is not part of your access">{permission==='view_received_orders'?'Incoming orders are available to users assigned to a supplying branch.':'Ask your administrator if your role needs this feature.'}</Empty>;}
+function Guard({permission,children}:{permission:Permission;children:React.ReactNode}) {const {currentUser:user,branches}=useAppStore();const assigned=permission!=='view_received_orders'||!!user&&incomingSupplierBranches(user,branches).length>0;return assigned&&(can(user,permission)||(permission==='scan_invoices'&&import.meta.env.VITE_ENABLE_INVOICE_CASES==='true'&&can(user,'review_invoices')&&can(user,'view_prices')))?<>{children}</>:<Empty title="This area is not part of your access">{permission==='view_received_orders'?'Incoming orders are available to users assigned to a supplying branch.':'Ask your administrator if your role needs this feature.'}</Empty>;}
 export function Workspace() {
   const navigate=useNavigate();
   const [helpOpen,setHelpOpen]=useState(false);
@@ -88,7 +88,7 @@ export function Workspace() {
   const phoneBottomPaths=['/','/new-order','/orders','/deliveries','/checks'];
   const phonePaths=[...phoneBottomPaths,'/checklists'];
   const incomingAssigned=!!user&&incomingSupplierBranches(user,branches).length>0;
-  const availableNavigation=navigation.filter(n=>(!phone||phonePaths.includes(n.path))&&(!n.permission||can(user,n.permission))&&(n.path!=='/deliveries'||incomingAssigned));
+  const availableNavigation=navigation.filter(n=>(!phone||phonePaths.includes(n.path))&&(!n.permission||can(user,n.permission)||(n.path==='/checks'&&import.meta.env.VITE_ENABLE_INVOICE_CASES==='true'&&can(user,'review_invoices')&&can(user,'view_prices')))&&(n.path!=='/deliveries'||incomingAssigned));
   const phoneHome=availableNavigation[0]?.path;
   const mobileRedirect=phone&&!phonePaths.includes(location.pathname);
   useEffect(()=>{const changed=()=>setOnline(navigator.onLine);window.addEventListener('online',changed);window.addEventListener('offline',changed);return()=>{window.removeEventListener('online',changed);window.removeEventListener('offline',changed);};},[]);

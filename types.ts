@@ -488,6 +488,7 @@ export interface PriceMonitoringSettings {
 // --- Permission Types ---
 
 export type Permission = 
+  | 'review_invoices'
   | 'view_menu_recipes'
   | 'edit_menu_recipes'
   | 'approve_menu_recipes'

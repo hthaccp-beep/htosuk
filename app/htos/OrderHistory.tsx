@@ -14,6 +14,7 @@ import {hasBranchScope,incomingSupplierBranches} from '../../shared/order-scope'
 import {canEditOutgoing} from './orderModel';
 import {ReceiveOrder} from './Orders';
 import {OrderCheck as InvoiceReview} from './DeliveryChecks';
+import {invoiceUploadLabel} from '../../shared/invoice-case';
 import {EmailStatus,OrderEmail,OrderDocument} from './OrderCommunication';
 import {RefundRequest} from './RefundRequest';
 import {generateCreditClaimPdf} from '../../utils/creditClaimPdf';
@@ -45,7 +46,7 @@ export function OrderBook({incoming=false}:{incoming?:boolean}) {
   const canRemove=(o:OrderRecord)=>canEditOutgoing(user,o)&&can(user,o.status==='DRAFT'?'delete_drafts':'cancel_orders');
   const actions=(o:OrderRecord)=><div className="h-history-actions">
     <Button variant="quiet" title="View order" aria-label={`View order ${shortId(o.id)}`} onClick={()=>setParams({order:o.id})}><Eye size={17}/><span className="h-history-action-label">View order</span></Button>
-    {canInvoice(o)&&<Button variant="quiet" title="Check delivery / invoice" aria-label={`Check invoice ${shortId(o.id)}`} onClick={()=>setInvoice(o)}><FileSpreadsheet size={17}/><span className="h-history-action-label">Check invoice</span></Button>}
+    {canInvoice(o)&&<Button variant="quiet" title={invoiceUploadLabel} aria-label={invoiceUploadLabel+' · '+shortId(o.id)} onClick={()=>setInvoice(o)}><FileSpreadsheet size={17}/><span className="h-history-action-label">{invoiceUploadLabel}</span></Button>}
     <Button variant="quiet" title={incoming?'Packing checklist':'Print / PDF'} aria-label={`Print order ${shortId(o.id)}`} onClick={()=>setDocument({order:o,mode:incoming?'CHECKLIST':'ORDER'})}><Printer size={17}/><span className="h-history-action-label">{incoming?'Checklist':'Print / PDF'}</span></Button>
     {o.status==='DRAFT'&&can(user,'edit_drafts')&&<Link className="h-button quiet" to={`/new-order?draft=${o.id}`}>Edit</Link>}
     {canRemove(o)&&<Button variant="quiet" title={o.status==='DRAFT'?'Delete draft':o.status==='CANCELLED'?(o.archived?'Restore order':'Remove from list'):'Cancel order'} aria-label={`${o.status==='DRAFT'?'Delete draft':o.status==='CANCELLED'?(o.archived?'Restore order':'Remove from list'):'Cancel order'} ${shortId(o.id)}`} onClick={()=>setRemove(o)}>{o.status==='DRAFT'?<Trash2 size={17}/>:o.status==='CANCELLED'?(o.archived?<RotateCcw size={17}/>:<Archive size={17}/>):<XCircle size={17}/>}<span className="h-history-action-label">{o.status==='DRAFT'?'Delete draft':o.status==='CANCELLED'?(o.archived?'Restore order':'Remove from list'):'Cancel order'}</span></Button>}

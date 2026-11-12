@@ -1,6 +1,15 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    match /_invoice_later_deliveries/{record=**} { allow read, write: if false; }
+    match /_invoice_later_references/{record=**} { allow read, write: if false; }
+    match /_invoice_later_documents/{record=**} { allow read, write: if false; }
+
+    // Invoice evidence and Accounts decisions are available only through scoped server actions.
+    match /_invoice_cases/{record=**} { allow read, write: if false; }
+    match /_invoice_case_documents/{record=**} { allow read, write: if false; }
+    match /_invoice_case_references/{record=**} { allow read, write: if false; }
+    match /_invoice_case_credit_references/{record=**} { allow read, write: if false; }
 
     // Help reports and screenshots are private. Access goes through owner-checked server actions.
     match /help_issues/{record=**} { allow read, write: if false; }

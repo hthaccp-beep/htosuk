@@ -1,3 +1,7 @@
+import {invoiceCaseAction} from '../../server/invoice-case-service.ts';
+import {invoiceEmailAction} from '../../server/invoice-case-email.ts';
+import {configuredInvoiceReader} from '../../server/invoice-reader-connection.ts';
+import {InvoiceCaseError} from '../../server/invoice-case-validation.ts';
 import {removePriceRecords} from '../../server/price-record-removal-service.ts';
 import {PriceOperationError} from '../../server/price-change-service.ts';
 import {serviceReadiness} from '../../server/service-readiness.ts';
@@ -38,6 +42,15 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
   const {auth,db}=getAdmin();let uid:string;
   try{uid=(await auth.verifyIdToken(token,true)).uid;}catch{return res.status(401).json({error:'Please sign in again.'});}
   const action=req.body?.action;
+  if(typeof action==='string'&&action.startsWith('invoice-case-')){
+   try{
+    if(action.startsWith('invoice-case-email-'))return res.status(200).json(await invoiceEmailAction({db,account:getBranchEmailAccount,env:process.env,reserveSend:uid=>reserveEmailSend(db,uid),deliver:async(mail,config)=>{const transport=nodemailer.createTransport(config);try{const result=await transport.sendMail(mail);return {accepted:(result.accepted||[]).map(String),rejected:(result.rejected||[]).map(String)};}finally{transport.close();}}},uid,req.body));
+    if(action==='invoice-case-read')throw new InvoiceCaseError('Use the invoice reading endpoint.',400);
+    const reader=action==='invoice-case-reading-status'?configuredInvoiceReader(db,process.env,globalThis.fetch):undefined;
+    return res.status(200).json(await invoiceCaseAction(db,uid,req.body,process.env.HTOS_ENABLE_INVOICE_CASES==='true',reader));
+   }
+   catch(e){return res.status(e instanceof InvoiceCaseError?e.status:503).json({error:e instanceof InvoiceCaseError?e.message:databaseErrorMessage(e,'Invoice workflow unavailable. Your edits remain on screen; no automatic retry has been made.')});}
+  }
   if(action==='price-record-delete'){
    try{return res.status(200).json(await removePriceRecords(db,uid,req.body));}
    catch(e){return res.status(e instanceof PriceOperationError?e.status:503).json({error:e instanceof PriceOperationError?e.message:'Deletion could not be completed. Retry the same selection.'});}

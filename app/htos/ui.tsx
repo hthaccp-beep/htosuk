@@ -15,14 +15,14 @@ export const today = () => new Date().toLocaleDateString('en-CA');
 export const total = (order: OrderRecord) => calculateOrderTotals(order.items, order.manualItems || []).grandTotal;
 export const shortId = orderReference;
 export const clean = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
-export async function api(path: string, body: unknown) {
+export async function api(path: string, body: unknown, options:{notifyChange?:boolean}={}) {
   const action=(body as {action?:string}|null)?.action;
   const quota=useDatabaseStatus.getState().quotaMessage;
   if(quota&&['catalog-preview','catalog-commit','product-bulk'].includes(action||''))throw Object.assign(new Error(quota),{code:'DATABASE_QUOTA_EXCEEDED'});
   if (!auth?.currentUser) throw new Error('Please sign in again.');
   const token = await auth.currentUser.getIdToken();
   const response = await fetch(path, {method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify(body)});
-  try{const result=await readApiResponse(response,(body as {action?:string}|null)?.action);if(typeof window!=='undefined')window.dispatchEvent(new Event('htos-data-changed'));return result;}catch(error){reportDatabaseError(error);throw error;}
+  try{const result=await readApiResponse(response,(body as {action?:string}|null)?.action);if(options.notifyChange!==false&&typeof window!=='undefined')window.dispatchEvent(new Event('htos-data-changed'));return result;}catch(error){reportDatabaseError(error);throw error;}
 }
 export function csv(name: string, rows: unknown[][]) {
   const text = rows.map(row => row.map(value => {

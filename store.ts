@@ -1,3 +1,4 @@
+import {canReviewInvoices} from './shared/invoice-case';
 import {readProtectedRecords} from './utils/secureRead';
 import {supplierRemoval,categoryRemoval} from './shared/catalogue-removal.ts';
 import {savedListOrder,planListMove,nextListPosition,canArrangeSuppliers} from './shared/list-order.ts';
@@ -150,6 +151,7 @@ const mergeOrders = (live: OrderRecord[], incoming: OrderRecord[], archived: Ord
 // Check user permissions for a given operational or administrative action
 export const can = (user: User | null, action: Permission): boolean => {
   if (!user || user.active !== true) return false;
+  if (action === 'review_invoices') return canReviewInvoices(user, useAppStore.getState().rolePermissions);
   // Creator and GM have full enterprise-wide system and operational access
   if (user.role === 'CREATOR' || user.role === 'GM') return true; 
 

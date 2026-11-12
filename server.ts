@@ -12,6 +12,7 @@ import sendEmailHandler from './api/send-email';
 import branchEmailHandler from './api/admin/branch-email';
 import adminUsersHandler from './api/admin/users';
 import workspaceAdminHandler from './api/admin/workspace';
+import invoiceReadingHandler from './api/admin/invoice-reading';
 import orderActionHandler from './api/admin/order-action';
 import importDataHandler from './api/admin/import-data';
 import scanInvoiceHandler from './api/scan-invoice';
@@ -65,7 +66,8 @@ async function startServer() {
   app.all('/api/admin/branch-email', express.json({ limit: '16kb' }), vercelAdapter(branchEmailHandler));
   app.all('/api/admin/import-data', express.json({ limit: '3mb' }), vercelAdapter(importDataHandler));
   app.all('/api/admin/users', express.json({ limit: '64kb' }), vercelAdapter(adminUsersHandler));
-  app.all('/api/admin/workspace', express.json({ limit: '3mb' }), vercelAdapter(workspaceAdminHandler));
+  app.all('/api/admin/workspace', express.json({ limit: process.env.HTOS_ENABLE_INVOICE_CASES==='true'?'4.5mb':'3mb' }), vercelAdapter(workspaceAdminHandler));
+  app.all('/api/admin/invoice-reading', express.json({ limit: '16kb' }), vercelAdapter(invoiceReadingHandler));
   app.all('/api/admin/order-action', express.json({ limit: '16kb' }), vercelAdapter(orderActionHandler));
   app.all('/api/scan-invoice', express.json({ limit: '50mb' }), vercelAdapter(scanInvoiceHandler));
   app.all('/api/ocr', express.json({ limit: '50mb' }), vercelAdapter(ocrHandler));
