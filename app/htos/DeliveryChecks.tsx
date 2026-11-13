@@ -20,7 +20,7 @@ export function DeliveryChecks(){
 }
 function InvoiceChecksEntry(){
  const store=useAppStore();
- return can(store.currentUser,'review_invoices')&&can(store.currentUser,'view_prices')?<AccountsInvoices branches={store.branches.filter(b=>hasBranchScope(store.currentUser!,b.id))} suppliers={store.suppliers.filter(s=>hasSupplierScope(store.currentUser!,s.id))}/>:<LegacyDeliveryChecks currentReceipts/>;
+ return can(store.currentUser,'review_invoices')&&can(store.currentUser,'view_prices')?<AccountsInvoices key={store.currentUser!.id} filterScope={store.currentUser!.id} branches={store.branches.filter(b=>hasBranchScope(store.currentUser!,b.id))} suppliers={store.suppliers.filter(s=>hasSupplierScope(store.currentUser!,s.id))}/>:<LegacyDeliveryChecks currentReceipts/>;
 }
 function LegacyDeliveryChecks({currentReceipts=false}:{currentReceipts?:boolean}){
  const store=useAppStore(),[params,setParams]=useSearchParams(),[search,setSearch]=useState(''),[filter,setFilter]=useState('all');

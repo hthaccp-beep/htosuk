@@ -1,3 +1,4 @@
+import {encodePreparedCanvas} from './preparedImageEncoding';
 import {prepareInvoiceRaster,resizeInvoiceRaster,rotateInvoiceRaster,invoicePhotoBands,type InvoiceRaster} from '../../shared/invoice-photo';
 import type {PreparedInvoiceJob,PreparedInvoiceSection} from '../../server/invoice-section-jobs';
 export interface PreparedPhoto {plan:PreparedInvoiceJob;previewUrl:string;originalUrl:string;originalBase64:string;warnings:string[];corners:unknown;rotation:number}
@@ -14,7 +15,8 @@ export async function prepareInvoicePhoto(file:File,quarterTurns=0,retainWhole=f
  const page=canvas(prepared.image),sections:PreparedInvoiceSection[]=[];
  const encode=async(id:string,kind:PreparedInvoiceSection['kind'],top:number,bottom:number)=>{
   const c=document.createElement('canvas');c.width=page.width;c.height=bottom-top;c.getContext('2d')!.drawImage(page,0,top,page.width,bottom-top,0,0,c.width,c.height);
-  const base64=c.toDataURL('image/png').split(',')[1],data=Uint8Array.from(atob(base64),v=>v.charCodeAt(0));if(data.length>3*1024*1024)throw new Error('A prepared section is too large. Use a clearer photo with less background.');
+  const limit=Math.min(3*1024*1024,Math.floor(12*1024*1024/(prepared.bands.length+2)));
+  const {base64,bytes:data}=encodePreparedCanvas(c,limit);
   sections.push({id,kind,page:1,sha256:await digest(data),base64,width:c.width,height:c.height,reservePence:60});
  };
  await encode('header','header',0,page.height);

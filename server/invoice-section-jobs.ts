@@ -1,3 +1,4 @@
+import {preparedImageInfo} from '../shared/prepared-image.ts';
 import {invoiceFromSections,type InvoiceSectionBundle,type InvoiceSectionPlan} from '../shared/invoice-section-extraction.ts';
 import type {InvoiceReaderResult,InvoiceReaderUsage} from './invoice-reader.ts';
 
@@ -21,8 +22,8 @@ export async function validatePreparedInvoiceJob(plan:PreparedInvoiceJob,storedM
   // Only the server's sealed, already-verified storage loader may omit pixels here.
   if(storedMetadataOnly&&s.base64===''&&/^[a-f0-9]{64}$/.test(s.sha256))continue;
   const b=bytes(s.base64);total+=b.length;
-  if(b.length<33||b.length>3*1024*1024||btoa(String.fromCharCode(...b.subarray(0,24)))!==s.base64.slice(0,32)||![137,80,78,71,13,10,26,10].every((v,i)=>b[i]===v)||String.fromCharCode(...b.subarray(12,16))!=='IHDR'||await sectionDigest(b)!==s.sha256)throw new Error('Prepared image integrity failed.');
-  const view=new DataView(b.buffer,b.byteOffset,b.byteLength);if(view.getUint32(16)!==s.width||view.getUint32(20)!==s.height)throw new Error('Prepared dimensions do not match the image.');
+  if(b.length<33||b.length>3*1024*1024||btoa(String.fromCharCode(...b.subarray(0,24)))!==s.base64.slice(0,32)||await sectionDigest(b)!==s.sha256)throw new Error('Prepared image integrity failed.');
+  const info=preparedImageInfo(b);if(info.width!==s.width||info.height!==s.height)throw new Error('Prepared dimensions do not match the image.');
  }
  if(total>12*1024*1024)throw new Error('Prepared sections exceed the 12 MB limit.');
  return sectionDigest(new TextEncoder().encode(JSON.stringify({documentHash:plan.documentHash,revision:plan.revision,sections:plan.sections.map(({base64,...s})=>s)})));

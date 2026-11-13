@@ -1,4 +1,5 @@
 import React,{useState} from 'react';
+import {InvoiceUploadStatus,useInvoiceUploadSummaries} from './InvoiceUploadStatus';
 import './order-list.css';
 import {MinimumFollowUp} from './OrderMinimum';
 import {Link,useSearchParams} from 'react-router-dom';
@@ -9,6 +10,7 @@ import {getCaseUnitLabel,getPackUnitLabel} from '../../types';
 import {canUserProcessFulfillment} from '../../utils/fulfillmentEngine';
 import {incomingSupplierIds} from './orderingHelpers';
 import {historySuppliers,matchesHistoryFilters} from './historyFilters';
+import {invoiceHistoryFilters,matchesInvoiceHistoryStatus} from './historyInvoiceStatus';
 import {historyDayGroups} from './historyDayGroups';
 import {hasBranchScope,incomingSupplierBranches} from '../../shared/order-scope';
 import {canEditOutgoing} from './orderModel';
@@ -32,10 +34,15 @@ export function OrderBook({incoming=false}:{incoming?:boolean}) {
   const linked=incomingSupplierIds(user,store.suppliers,store.branches,internalBranch);
   const scoped=store.orders.filter(o=>!incoming||o.status==='PLACED'&&linked.has(o.supplierId));
   const supplierOptions=historySuppliers(incoming?[]:scoped);
-  const orders=scoped.filter(o=>incoming
+  const candidates=scoped.filter(o=>incoming
     ? (!branchId||o.branchId===branchId)&&(tab==='history'?o.receivedStatus==='PROCESSED':o.receivedStatus!=='PROCESSED')&&`${o.supplierNameSnapshot} ${o.branchNameSnapshot} ${o.id}`.toLowerCase().includes(search.toLowerCase())
-    : matchesHistoryFilters(o,{branchId,supplierId,status,search})
+    : matchesHistoryFilters(o,{branchId,supplierId,status:['DRAFT','CANCELLED','ARCHIVED','PLACED','OPEN','PROCESSED'].includes(status)?status:'ALL',search:''})
   ).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+  const invoiceStatusesEnabled=!incoming&&import.meta.env.VITE_ENABLE_INVOICE_CASES==='true'&&can(user,'scan_invoices');
+  const uploadIds=invoiceStatusesEnabled?candidates.filter(o=>o.status==='PLACED'&&!o.invoiceVerification&&!o.deliveryCheck&&!o.supplierCase&&canEditOutgoing(user,o)).map(o=>o.id):[];
+  const {summaries:uploadSummaries,loading:statusLoading,failed:statusFailed}=useInvoiceUploadSummaries(uploadIds,!!invoice||!!params.get('order'));
+  const orders=incoming?candidates:candidates.filter(o=>matchesInvoiceHistoryStatus(o,uploadSummaries[o.id],status));
+  const invoiceStatus=(o:OrderRecord)=><InvoiceUploadStatus order={o} summary={uploadSummaries[o.id]} enabled={invoiceStatusesEnabled&&canEditOutgoing(user,o)} loading={statusLoading}/>;
   const hasFilters=Boolean(branchId||supplierId||search||status!=='ALL'||internalBranch);
   const clearFilters=()=>{setBranch('');setSupplier('');setSearch('');setStatus('ALL');setParams(previous=>{const next=new URLSearchParams(previous);next.delete('status');return next;});};
   const days=incoming?[]:historyDayGroups(orders);
@@ -57,23 +64,13 @@ export function OrderBook({incoming=false}:{incoming?:boolean}) {
     <section className="h-panel" aria-label={incoming?'Incoming orders':'Saved orders'}>
       {incoming?<div className="h-toolbar"><input aria-label="Search orders" placeholder="Search branch, supplier or order" value={search} onChange={e=>setSearch(e.target.value)}/><select aria-label="Internal supplier branch" value={internalBranch} onChange={e=>setInternalBranch(e.target.value)}><option value="">All supplier branches</option>{internal.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select><span className="h-order-count">{orders.length} {orders.length===1?'order':'orders'}</span></div>:<>
         <div className="h-toolbar h-history-filters">
-          <label className="h-field h-history-search"><span>Search orders</span><input aria-describedby="history-search-help" placeholder="Branch, supplier or order reference" value={search} onChange={e=>setSearch(e.target.value)}/></label>
           <label className="h-field h-history-filter"><span>Supplier</span><select aria-label="Supplier" value={supplierId} onChange={e=>setSupplier(e.target.value)}><option value="">All suppliers</option>{supplierOptions.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-          <label className="h-field h-history-filter"><span>Order status</span><select aria-label="Order status" value={status} onChange={e=>setStatus(e.target.value)}><option value="ALL">All statuses</option><option value="DRAFT">Draft</option><option value="PLACED">Placed</option><option value="OPEN">Awaiting receipt</option><option value="PROCESSED">Processed</option><option value="CANCELLED">Cancelled</option><option value="ARCHIVED">Archived</option></select></label>
+          <label className="h-field h-history-filter"><span>Invoice / order status</span><select aria-label="Invoice / order status" value={status} onChange={e=>setStatus(e.target.value)}>{invoiceHistoryFilters.filter(([value])=>invoiceStatusesEnabled||['ALL','DRAFT','CANCELLED','ARCHIVED'].includes(value)).map(([value,label])=><option key={value} value={value}>{label}</option>)}{['PLACED','OPEN','PROCESSED'].includes(status)&&<option value={status}>Orders from overview</option>}</select></label>
         </div>
-        <div className="h-history-filter-summary"><p id="history-search-help">Search loaded orders by branch, supplier or reference (with or without #).</p><span className="h-order-count" role="status">{orders.length} {orders.length===1?'order':'orders'}</span>{hasFilters&&<Button variant="quiet" onClick={clearFilters}>Clear filters</Button>}</div>
-        <details className="h-history-filter-guide"><summary>Search & status guide</summary><p>For example, type Ealing, Atariya or an order reference. Product names are not searched. Branch, supplier, search and status filters work together. Use View older history to load another date range; filters only search orders already loaded.</p><dl>
-          <div><dt>All statuses</dt><dd>All loaded orders except archived ones.</dd></div>
-          <div><dt>Draft</dt><dd>Saved but not placed.</dd></div>
-          <div><dt>Placed</dt><dd>Placed orders, including those already processed. Check the email badge separately.</dd></div>
-          <div><dt>Awaiting receipt</dt><dd>Placed orders not yet marked as processed.</dd></div>
-          <div><dt>Processed</dt><dd>Marked as processed in the receiving workflow. Check order details for fulfilment or shortages.</dd></div>
-          <div><dt>Cancelled</dt><dd>Cancelled orders retained in history.</dd></div>
-          <div><dt>Archived</dt><dd>Orders removed from the normal list, not permanently deleted.</dd></div>
-        </dl><p><strong>Email sent</strong> means the mail server accepted the email. It does not confirm the supplier has read it or delivered the order. <strong>Minimum follow-up</strong> is a separate reminder for a manager / GM to check the minimum-order requirement.</p></details>
+        <div className="h-history-filter-summary"><span className="h-order-count" role="status">{statusLoading?'Loading invoice statuses…':orders.length+' '+(orders.length===1?'order':'orders')}</span>{hasFilters&&<Button variant="quiet" onClick={clearFilters}>Clear filters</Button>}{statusFailed&&<span role="status">Invoice statuses unavailable. Open an order to check its report.</span>}</div>
       </>}
       {(!incoming||tab==='history')&&<details className="h-history-range"><summary>View older history</summary><div className="h-form-grid"><Field label="From"><input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></Field><Field label="To"><input type="date" value={to} onChange={e=>setTo(e.target.value)}/></Field><Button busy={action.busy} disabled={!from||!to||from>to} onClick={()=>action.run(()=>store.fetchArchivedOrders(from,to,incoming),'History loaded.')}>Load history</Button></div></details>}{action.feedback}
-    {!orders.length?<Empty title={incoming?(tab==='new'?'No new orders':'No processed orders yet'):'No matching orders'}>Try another filter or load an older date range.</Empty>:incoming?<div className="h-incoming-cards">{orders.map(o=>{
+    {!orders.length?<Empty title={incoming?(tab==='new'?'No new orders':'No processed orders yet'):statusLoading?'Loading invoice statuses…':statusFailed?'Invoice statuses unavailable':'No matching orders'}>{statusFailed?'Clear the status filter to see your orders.':'Try another filter or load an older date range.'}</Empty>:incoming?<div className="h-incoming-cards">{orders.map(o=>{
       const access=canUserProcessFulfillment(user,o,store.suppliers,store.branches);
       const allowed=can(user,'view_received_orders')&&access.allowed;
       const reason=access.reason||'Your role does not have incoming-order access.';
@@ -91,7 +88,7 @@ export function OrderBook({incoming=false}:{incoming?:boolean}) {
        <h2><button type="button" className="h-history-day-toggle" aria-expanded={!(collapsedDays[group.key]??index>0)} aria-controls={`history-day-${group.key}`} onClick={()=>setCollapsedDays(previous=>({...previous,[group.key]:!(previous[group.key]??index>0)}))}><span>{group.label}</span><span>{group.orders.length} {group.orders.length===1?'order':'orders'} <span aria-hidden="true">{(collapsedDays[group.key]??index>0)?'＋':'−'}</span></span></button></h2>
        <div id={`history-day-${group.key}`} hidden={collapsedDays[group.key]??index>0}>
         {group.orders.map(o=><details className="h-mobile-history-order" key={o.id}>
-         <summary><strong>{o.branchNameSnapshot.replace(/^Hare\s*&\s*Tortoise\s*[–-]\s*/i,'')} · {o.supplierNameSnapshot}</strong><span className="h-mobile-history-meta"><span>Delivery {day(o.deliveryDate)}</span><span>{o.archived?<Tag>Archived</Tag>:<EmailStatus order={o}/>} {o.receivedStatus==='PROCESSED'&&<Tag tone="green">Processed</Tag>}{o.status==='PLACED'&&o.minimumOrderCheck?.needsFollowUp&&<Tag tone="amber">Minimum follow-up</Tag>}</span></span></summary>
+         <summary><strong>{o.branchNameSnapshot.replace(/^Hare\s*&\s*Tortoise\s*[–-]\s*/i,'')} · {o.supplierNameSnapshot}</strong><span className="h-mobile-history-meta">{invoiceStatus(o)}<span>Delivery {day(o.deliveryDate)}</span><span><EmailStatus order={o}/>{o.status==='PLACED'&&o.minimumOrderCheck?.needsFollowUp&&<Tag tone="amber">Minimum follow-up</Tag>}</span></span></summary>
          <div className="h-mobile-history-expanded"><p>#{shortId(o.id)} · Ordered {new Date(o.createdAt).toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'})}<br/>{o.branchNameSnapshot}</p>
           {o.status==='PLACED'&&<MinimumFollowUp compact check={o.minimumOrderCheck} showPrices={can(user,'view_prices')}/>}
           {o.status==='PLACED'&&o.emailStatus!=='SENT'&&<OrderEmail order={o}/>}
@@ -103,13 +100,13 @@ export function OrderBook({incoming=false}:{incoming?:boolean}) {
      </div>
      <div className="h-table-wrap h-order-list-scroll h-desktop-history" tabIndex={0} role="region" aria-label={incoming?'Incoming orders table':'Order book table'}>
       <table role="table" className={`h-table h-order-list-table ${incoming?'incoming':'outgoing'}`}>
-       <thead role="rowgroup"><tr role="row">{incoming?<><th scope="col">Ordered by</th><th scope="col">Ordered</th><th scope="col">Delivery</th><th scope="col">Supplier</th><th scope="col">Items</th><th scope="col">Status</th><th scope="col">Actions</th></>:<><th scope="col">Ordered</th><th scope="col">Delivery</th><th scope="col">Branch</th><th scope="col">Supplier</th><th scope="col">Status</th><th scope="col">Actions</th></>}</tr></thead>
+       <thead role="rowgroup"><tr role="row">{incoming?<><th scope="col">Ordered by</th><th scope="col">Ordered</th><th scope="col">Delivery</th><th scope="col">Supplier</th><th scope="col">Items</th><th scope="col">Status</th><th scope="col">Actions</th></>:<><th scope="col">Ordered</th><th scope="col">Delivery</th><th scope="col">Branch</th><th scope="col">Supplier</th><th scope="col">Invoice / order status</th><th scope="col">Actions</th></>}</tr></thead>
        <tbody role="rowgroup">{orders.map(o=><tr role="row" key={o.id}>
         <td role="cell" data-label={incoming?'Ordered by':'Ordered'}>{incoming?<><strong>{o.branchNameSnapshot}</strong><small>#{shortId(o.id)} · {o.orderedByNameSnapshot}</small></>:<><strong>{day(o.createdAt)}</strong><small>{new Date(o.createdAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})} · #{shortId(o.id)}</small></>}</td>
         {incoming&&<td>{day(o.createdAt)}<small>{new Date(o.createdAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</small></td>}
         <td role="cell" data-label="Delivery">{day(o.deliveryDate)}</td>{!incoming&&<td role="cell" data-label="Branch">{o.branchNameSnapshot}</td>}<td role="cell" data-label="Supplier">{o.supplierNameSnapshot}</td>
         {incoming&&<td className="number">{o.items.length+(o.manualItems||[]).length}</td>}
-        <td role="cell" data-label="Status"><div className="h-order-list-status">{o.status==='PLACED'&&<MinimumFollowUp compact check={o.minimumOrderCheck} showPrices={can(user,'view_prices')}/>}{incoming?(o.receivedStatus==='PROCESSED'?<FulfillmentSummary order={o}/>:<><EmailStatus order={o}/><small>Awaiting processing</small></>):<>{o.archived?<Tag>Archived</Tag>:<EmailStatus order={o}/>}{o.receivedStatus==='PROCESSED'&&<Tag tone="green">Processed</Tag>}{o.status==='PLACED'&&o.emailStatus!=='SENT'&&<OrderEmail order={o}/>}</>}</div></td>
+        <td role="cell" data-label="Status"><div className="h-order-list-status">{invoiceStatus(o)}{o.status==='PLACED'&&<MinimumFollowUp compact check={o.minimumOrderCheck} showPrices={can(user,'view_prices')}/>}{incoming?(o.receivedStatus==='PROCESSED'?<FulfillmentSummary order={o}/>:<><EmailStatus order={o}/><small>Awaiting processing</small></>):<><EmailStatus order={o}/>{o.status==='PLACED'&&o.emailStatus!=='SENT'&&<OrderEmail order={o}/>}</>}</div></td>
         <td role="cell" data-label="Actions"><div className="h-order-list-actions">{actions(o)}{incoming&&o.receivedStatus==='PROCESSED'&&<DeliveryEmail order={o}/>} {incoming&&tab==='new'&&can(user,'view_received_orders')&&canUserProcessFulfillment(user,o,store.suppliers,store.branches).allowed&&<Button onClick={()=>setProcess(o)}><Truck size={15}/> Process</Button>}</div></td>
        </tr>)}</tbody>
       </table>

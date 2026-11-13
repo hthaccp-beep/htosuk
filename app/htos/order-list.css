@@ -94,7 +94,7 @@
 @media(pointer:coarse){.h-order-list-actions .h-button,.h-order-list-actions .h-history-actions .h-button,.h-order-list-status>.h-button{min-height:40px}}
 @media(max-width:620px){.h-order-details .h-detail-actions{display:grid;grid-template-columns:1fr 1fr}.h-order-details .h-detail-actions .h-button{width:100%;min-width:0}.h-order-details .h-detail-actions .h-button:last-child:nth-child(odd){grid-column:1/-1}}
 
-.h-order-list .h-history-filters{display:grid;grid-template-columns:minmax(220px,2fr) minmax(180px,1fr) minmax(170px,1fr);align-items:end;gap:14px;padding-bottom:10px}
+.h-order-list .h-history-filters{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,1fr);align-items:end;gap:14px;padding-bottom:10px}
 .h-history-filters .h-field{min-width:0;margin:0}
 .h-order-list .h-history-filters input,.h-order-list .h-history-filters select{width:100%;min-width:0;max-width:none;min-height:44px}
 .h-history-filter-summary{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:0 20px 10px;color:var(--muted)}
@@ -117,3 +117,7 @@
  .h-history-filter-guide{padding:0 10px 10px;font-size:16px}
  .h-history-filter-guide dl>div{grid-template-columns:1fr;gap:2px}
 }
+
+.h-history-invoice-status{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
+.h-history-invoice-status .h-tag{white-space:normal;overflow-wrap:anywhere}
+.h-history-invoice-status small{font-size:11px;color:var(--muted)}
