@@ -9,7 +9,7 @@ const list=(id=sampleOrder.id)=>({action:'invoice-case-receipt-summaries',orderI
 test('submission is reflected in staff list and locked original without exposing Accounts figures',async()=>{
  const f=fixture();assert.equal((await f.run(list())).summaries[0].receipt,'DRAFT');
  await f.run({action:'invoice-case-command',caseId:f.r.id,command:{kind:'submit-receipt',receipt:f.r.receipt,expectedVersion:0,requestId:'summary-submit'}});
- const {summaries}=await f.run(list());assert.deepEqual(summaries,[{id:f.r.id,receipt:'SUBMITTED',status:'REVIEW',documents:f.r.documents.filter(d=>['INVOICE','DELIVERY'].includes(d.kind)).length}]);
+ const {summaries}=await f.run(list());assert.deepEqual(summaries,[{id:f.r.id,receipt:'SUBMITTED',status:'REVIEW',progress:{stage:'NOT_READ'},documents:f.r.documents.filter(d=>['INVOICE','DELIVERY'].includes(d.kind)).length}]);
  assert.deepEqual(receiptSummaryLabels(summaries[0] as InvoiceReceiptSummary),{delivery:'Submitted for checking',invoice:'Accounts review pending'});
  const opened=await f.run({action:'invoice-case-get',caseId:f.r.id});assert.ok(opened.record.receipt.submittedAt);assert.equal(opened.record.lines[0].expectedPrice,undefined);
  assert.deepEqual(f.data.get('orders/'+f.r.id),sampleOrder);

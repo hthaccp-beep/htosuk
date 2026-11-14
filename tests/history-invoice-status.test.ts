@@ -7,7 +7,7 @@ import type {InvoiceReceiptSummary} from '../shared/invoice-receipt-summary';
 
 const summary=(values:Partial<InvoiceReceiptSummary>={}):InvoiceReceiptSummary=>({id:sampleOrder.id,receipt:'SUBMITTED',status:'REVIEW',documents:1,...values});
 test('uploaded, submitted and approved are distinct; every workflow stage has a clear label',()=>{
- const stages={CHECKING:'Checking invoice',REVIEW:'Waiting for review',HOLD:'On hold',CLAIM_DRAFT:'Claim being prepared',WAITING_CREDIT:'Waiting for credit note',CREDIT_REVIEW:'Credit note under review',CREDIT_APPROVED:'Credit approved · invoice pending',APPROVED:'Invoice approved'} as const;
+ const stages={CHECKING:'Checking invoice',REVIEW:'Waiting for review',HOLD:'On hold',CLAIM_DRAFT:'Claim being prepared',WAITING_CREDIT:'Waiting for credit note',CREDIT_REVIEW:'Credit note awaiting approval',CREDIT_APPROVED:'Credit approved · invoice pending',APPROVED:'Invoice approved'} as const;
  for(const [status,label] of Object.entries(stages)){const actual=historyInvoiceStatus(sampleOrder,summary({status:status as keyof typeof stages}),true);assert.equal(actual.label,label);assert.equal(actual.tone==='green',status==='APPROVED');assert.equal(actual.detail,'1 document uploaded');}
  assert.equal(historyInvoiceStatus(sampleOrder,summary({receipt:'DRAFT',status:'DRAFT'}),true).label,'Uploaded · report to submit');
  assert.equal(historyInvoiceStatus(sampleOrder,summary({receipt:'DRAFT',status:'DRAFT',documents:0}),true).label,'Report draft · no upload');
