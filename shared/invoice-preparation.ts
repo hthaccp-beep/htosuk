@@ -5,6 +5,7 @@ export const preparationRevision='photo-sections-v1';
 export interface PreparationSection {id:string;kind:'header'|'rows'|'totals';page:number;sha256:string;width:number;height:number;length:number;parts:number}
 export interface PreparationManifest {documentHash:string;revision:string;confirmed:true;sections:PreparationSection[]}
 export function preparationManifest(plan:PreparedInvoiceJob):PreparationManifest {
+ if(plan.confirmed!==true)throw new Error('Preview and confirm the prepared scan before saving.');
  return {documentHash:plan.documentHash,revision:preparationRevision,confirmed:true,sections:plan.sections.map(s=>({id:s.id,kind:s.kind,page:s.page,sha256:s.sha256,width:s.width,height:s.height,length:s.base64.length,parts:Math.ceil(s.base64.length/preparationPartLength)}))};
 }
 /** Bounded uploads, no automatic retries. Repeating explicitly reuses stored parts. */

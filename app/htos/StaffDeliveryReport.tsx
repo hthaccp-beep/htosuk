@@ -1,3 +1,4 @@
+import {useInvoiceUploadPending} from './InvoiceUploadPreview';
 import {LaterDeliveries} from './LaterDeliveries';
 import React,{useEffect,useState} from 'react';
 import type {OrderRecord} from '../../types';
@@ -14,9 +15,10 @@ export function StaffDeliveryReport({order,onClose,showOriginal=false}:{order:Or
  const {record,busy,error,run,command}=useInvoiceCase(order.id);
  const [draft,setDraft]=useState<ReceiptReport|null>(null),[dirty,setDirty]=useState(false),[kind,setKind]=useState<'INVOICE'|'DELIVERY'>('INVOICE'),[saved,setSaved]=useState(''),[openItems,setOpenItems]=useState<Set<string>>(()=>new Set());
  useEffect(()=>{if(record&&!draft){setDraft(structuredClone(record.receipt));setOpenItems(new Set(record.receipt.issues.slice(0,1).map(i=>i.id)));}},[record,draft]);
- useInvoiceDraftGuard(dirty,busy);
+ const {uploadPending,uploadBusy,onUploadPending}=useInvoiceUploadPending();
+ useInvoiceDraftGuard(dirty||uploadPending,busy||uploadBusy);
  const change=(update:Partial<ReceiptReport>)=>{setDraft(d=>({...d!,...update}));setDirty(true);setSaved('');};
- const close=()=>{if(!busy&&(!dirty||window.confirm('Discard unsaved delivery report changes?')))onClose();};
+ const close=()=>{if(!busy&&!uploadBusy&&(!(dirty||uploadPending)||window.confirm('Discard unsaved delivery report changes?')))onClose();};
  const issue=(id:string,update:Partial<ReceiptIssue>)=>change({issues:draft!.issues.map(i=>i.id===id?{...i,...update}:i)});
  const toggle=(status:ReceiptStatus,checked:boolean)=>{
   const statuses=checked?status==='RECEIVED'?['RECEIVED'] as ReceiptStatus[]:[...draft!.statuses.filter(s=>s!=='RECEIVED'),status]:draft!.statuses.filter(s=>s!==status);
@@ -26,6 +28,7 @@ export function StaffDeliveryReport({order,onClose,showOriginal=false}:{order:Or
   const id=crypto.randomUUID();change({issues:[...draft!.issues,{id,kind:status,notes:'',documentIds:[]}]});setOpenItems(old=>new Set([...old,id]));
  };
  const save=async(submit:boolean)=>{
+  if(uploadPending)return;
   const result=await command(submit?'submit-receipt':'save-receipt',{receipt:draft});
   if(result){setDraft(structuredClone(result.record.receipt));setDirty(false);setSaved(submit?'Submitted for Accounts checking. This does not approve the invoice.':'Draft saved.');}
  };
@@ -39,8 +42,8 @@ export function StaffDeliveryReport({order,onClose,showOriginal=false}:{order:Or
     <section className="ic-section">
      <h3>1. Upload invoice or delivery note</h3>
      {!locked&&<div className="ic-upload-grid">
-      <Field label="Document type"><select value={kind} onChange={e=>setKind(e.target.value as 'INVOICE'|'DELIVERY')}><option value="INVOICE">Invoice</option><option value="DELIVERY">Delivery note</option></select></Field>
-      <DocumentUpload record={record} run={run} kind={kind} label="Photograph or upload document" compact onUploaded={id=>change({documentIds:[...new Set([...draft.documentIds,id])],readable:false})}/>
+      <Field label="Document type"><select value={kind} disabled={uploadPending} onChange={e=>setKind(e.target.value as 'INVOICE'|'DELIVERY')}><option value="INVOICE">Invoice</option><option value="DELIVERY">Delivery note</option></select></Field>
+      <DocumentUpload onPendingChange={onUploadPending} record={record} run={run} kind={kind} label="Photograph or upload document" compact onUploaded={id=>change({documentIds:[...new Set([...draft.documentIds,id])],readable:false})}/>
      </div>}
      {!locked&&<CaseDocuments record={record} ids={record.documents.filter(d=>['INVOICE','DELIVERY'].includes(d.kind)).map(d=>d.id)}/>}
      <label className="h-check"><input type="checkbox" checked={draft.readable} onChange={e=>change({readable:e.target.checked})}/>I have checked all pages are complete and readable.</label>
@@ -67,7 +70,7 @@ export function StaffDeliveryReport({order,onClose,showOriginal=false}:{order:Or
           {['DAMAGED','INCORRECT'].includes(status)&&<Field label="What happened to these items?"><select value={i.outcome||''} onChange={e=>issue(i.id,{outcome:e.target.value as ReceiptIssue['outcome']})}><option value="">Choose an outcome</option>{Object.entries(returnLabels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></Field>}
          </div>
          {status==='INCORRECT'&&<Field label="What actually arrived?"><input value={i.actualItem||''} onChange={e=>issue(i.id,{actualItem:e.target.value})}/></Field>}
-         {i.lineId&&status==='DAMAGED'&&!locked&&<DocumentUpload record={record} run={run} kind="EVIDENCE" lineId={i.lineId} label="Damage photo (optional)" compact onUploaded={id=>issue(i.id,{documentIds:[...new Set([...i.documentIds,id])]})}/>}
+         {i.lineId&&status==='DAMAGED'&&!locked&&<DocumentUpload onPendingChange={onUploadPending} record={record} run={run} kind="EVIDENCE" lineId={i.lineId} label="Damage photo (optional)" compact onUploaded={id=>issue(i.id,{documentIds:[...new Set([...i.documentIds,id])]})}/>}
          {!!i.documentIds.length&&<CaseDocuments record={record} ids={i.documentIds}/>}
          {!locked&&<div className="ic-item-actions"><Button variant="quiet" onClick={()=>change({issues:draft.issues.filter(v=>v.id!==i.id)})}>Remove item</Button><Button variant="secondary" onClick={()=>setOpenItems(old=>{const next=new Set(old);next.delete(i.id);return next;})}>Collapse item</Button></div>}
         </div>
@@ -78,7 +81,7 @@ export function StaffDeliveryReport({order,onClose,showOriginal=false}:{order:Or
    </fieldset></details>
    {draft.notes&&<details className="ic-saved-note"><summary>Previously saved delivery note</summary><p>{draft.notes}</p></details>}
    {locked&&<><p className="ic-step-note">Original report preserved. Accounts approval is separate.</p><LaterDeliveries record={record} disabled={busy||dirty} onChanged={async()=>{await run({action:'invoice-case-get'});}}/></>}
-   <div className="h-dialog-foot"><Button variant="secondary" onClick={close}>Close</Button>{!locked&&<><Button variant="secondary" busy={busy} onClick={()=>void save(false)}>Save draft</Button><Button busy={busy} onClick={()=>void save(true)}>Submit for checking</Button></>}</div>
+   {uploadPending&&<p role="status" className="ic-step-note">Finish uploading or cancel the selected file before saving the report.</p>}<div className="h-dialog-foot"><Button variant="secondary" onClick={close}>Close</Button>{!locked&&<><Button variant="secondary" busy={busy} disabled={uploadPending} onClick={()=>void save(false)}>Save draft</Button><Button busy={busy} disabled={uploadPending} onClick={()=>void save(true)}>Submit for checking</Button></>}</div>
   </>}
  </Modal>;
 }

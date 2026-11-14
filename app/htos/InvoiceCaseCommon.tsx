@@ -1,4 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
+import {InvoiceUploadPreview,type UploadPendingChange} from './InvoiceUploadPreview';
+import {validateInvoiceUploadFile} from '../../shared/invoice-upload-preview';
 import {useBlocker} from 'react-router-dom';
 import {useUpdateProtection} from '../../hooks/useUpdateProtection';
 import {beginPendingWork} from '../../shared/pending-work';
@@ -23,13 +25,13 @@ export function useInvoiceDraftGuard(dirty:boolean,busy=false){
  useEffect(()=>{if(!dirty)return;const end=beginPendingWork();const warn=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue='';};window.addEventListener('beforeunload',warn);return()=>{end();window.removeEventListener('beforeunload',warn);};},[dirty]);
 }
 export const filePayload=async(file:File)=>{
- if(file.size>3*1024*1024||!['image/jpeg','image/png','application/pdf'].includes(file.type))throw new Error('Choose a JPEG, PNG or PDF up to 3 MB.');
+ validateInvoiceUploadFile(file);
  const base64=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(new Error('The file could not be read. Please select it again.'));reader.readAsDataURL(file);});return {name:file.name,mime:file.type,base64};
 };
-export function DocumentUpload({record,run,kind,onUploaded,lineId,label,compact=false}:{record:InvoiceCase;run:(body:any)=>Promise<any>;kind:DocumentKind;onUploaded?:(id:string)=>void;lineId?:string;label:string;compact?:boolean}){
- const [busy,setBusy]=useState(false),[error,setError]=useState(''),[uploadName,setUploadName]=useState(''),running=useRef(false);
+export function DocumentUpload({record,run,kind,onUploaded,lineId,label,compact=false,onPendingChange}:{record:InvoiceCase;run:(body:any)=>Promise<any>;kind:DocumentKind;onUploaded?:(id:string)=>void;lineId?:string;label:string;compact?:boolean;onPendingChange?:UploadPendingChange}){
  const uploaded=record.documents.filter(d=>d.kind===kind&&(!lineId||d.lineId===lineId));
- return <Field label={label} hint={(kind==='EVIDENCE'?'JPEG or PNG':'JPEG, PNG or PDF')+(compact?' · max 3 MB':' · up to 3 MB. Originals stay linked to this review.')}><input type="file" accept={kind==='EVIDENCE'?'image/jpeg,image/png':'image/jpeg,image/png,application/pdf'} disabled={busy} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';if(!file||running.current)return;running.current=true;setBusy(true);setUploadName(file.name);setError('');try{const payload=await filePayload(file),result=await run({action:'invoice-case-upload',expectedVersion:record.version,kind,lineId,...payload});if(result?.documentId)onUploaded?.(result.documentId);else setError('Upload was not confirmed. Check the message above before trying again.');}catch(error){setError((error as Error).message);}finally{running.current=false;setBusy(false);}}}/><span role="status" aria-live="polite">{busy?`Uploading ${uploadName} — please keep this screen open…`:uploaded.length?`✓ ${uploaded.length} ${uploaded.length===1?'document':'documents'} uploaded and saved: ${uploaded.map(d=>d.name).join(', ')}${['INVOICE','DELIVERY'].includes(kind)&&!record.receipt.submittedAt?' · Submit for checking when the delivery report is ready.':''}`:''}</span>{error&&<span role="alert">{error}</span>}</Field>;
+ return <div className="ic-upload-field"><InvoiceUploadPreview label={label} evidence={kind==='EVIDENCE'} onPendingChange={onPendingChange} upload={async file=>{const payload=await filePayload(file),result=await run({action:'invoice-case-upload',expectedVersion:record.version,kind,lineId,...payload});if(!result?.documentId)return false;onUploaded?.(result.documentId);return true;}}/>
+ {!!uploaded.length&&<p role="status" className="ic-upload-saved">{uploaded.length} {uploaded.length===1?'document':'documents'} uploaded and saved · {uploaded.map(d=>d.name).join(', ')}{['INVOICE','DELIVERY'].includes(kind)&&!record.receipt.submittedAt?' · Submit the delivery report when ready.':''}</p>}</div>;
 }
 export function CaseDocuments({record,ids}:{record:InvoiceCase;ids?:string[]}){
  const request=useCheckWorkflow(),[preview,setPreview]=useState<{url:string;name:string;mime:string}|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
