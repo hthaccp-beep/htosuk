@@ -7,31 +7,44 @@ import {useCheckWorkflow} from './CheckWorkflow';
 import {Button,money} from './ui';
 import {CaseDocuments,InvoiceField as Field} from './InvoiceCaseCommon';
 import {InvoiceDraftFacts,InvoiceRowFacts} from './InvoiceDraftFacts';
+import {suggestInvoiceItems,compareInvoiceUnits} from '../../shared/invoice-match-assistance';
 import {InvoiceStoredPreparation} from './InvoiceStoredPreparation';
 
 function UnitReview({record,row,disabled,confirm,onEditing}:{record:InvoiceCase;row:MatchedInvoiceRow;disabled:boolean;confirm:(data:any)=>Promise<any>;onEditing:(id:string,dirty:boolean)=>void}){
- const initialLine=row.lineId||'', [lineId,setLine]=useState(initialLine),[quantity,setQuantity]=useState(''),[price,setPrice]=useState(''),[reason,setReason]=useState(''),[productConfirmed,setProductConfirmed]=useState(false);
- const key=row.source.page+':'+row.source.row,edited=!!(lineId!==initialLine||quantity||price||reason||productConfirmed);
+ const initialLine=row.lineId||'', [lineId,setLine]=useState(initialLine),[quantity,setQuantity]=useState(''),[price,setPrice]=useState(''),[reason,setReason]=useState(''),[productConfirmed,setProductConfirmed]=useState(false),[pack,setPack]=useState('');
+ const suggestions=suggestInvoiceItems(record,row.source),suggestedIds=[...new Set([...row.candidateIds,...suggestions.map(s=>s.lineId)])];
+ const choose=(id:string)=>{setLine(id);setQuantity('');setPrice('');setPack('');setReason('');setProductConfirmed(false);};
+ const key=row.source.page+':'+row.source.row,edited=!!(lineId!==initialLine||quantity||price||reason||productConfirmed||pack);
  useEffect(()=>{onEditing(key,edited);return()=>onEditing(key,false);},[key,edited,onEditing]);
  const line=record.lines.find(l=>l.id===lineId),saved=currentUnitReviews(record).find(r=>r.page===row.source.page&&r.row===row.source.row),reading=invoiceExtractionDraft(record);
  if(!row.unitReviewRequired)return null;
  const current=saved&&hasConfirmedUnitReview(record,row.source.page,row.source.row),manual=!!line&&!row.candidateIds.includes(line.id);
  if(current)return <p className="ic-unit-saved"><strong>Item match & figures saved.</strong> {saved.quantity} {saved.unit} × £{saved.unitPrice.toFixed(2)}. Invoice approval is still separate.</p>;
  if(reading?.extracted.documentType!=='INVOICE'||record.documents.find(d=>d.id===reading?.documentId)?.kind!=='INVOICE')return <p className="h-notice">This reading is a delivery note or an unconfirmed document type. Upload and read the supplier invoice before using these figures as charges.</p>;
+ const comparison=line?compareInvoiceUnits(record,row.source,line,pack===''?undefined:Number(pack)):undefined;
  const total=quantity!==''&&price!==''?Number(quantity)*Number(price):null,amountMatches=total!==null&&Number.isFinite(total)&&row.source.netAmount!==null&&Math.round(total*100)===Math.round(row.source.netAmount*100);
  const valid=!!line&&quantity!==''&&price!==''&&Number(quantity)>=0&&Number(price)>=0&&amountMatches&&reason.trim().length>=10&&(!manual||productConfirmed);
  return <div className="ic-unit-review">
   <h4>{row.candidateIds.length?'Check the pack or unit':'Choose the ordered item'}</h4>
-  <Field label="Which ordered item is this?"><select value={lineId} disabled={disabled} onChange={e=>{setLine(e.target.value);setQuantity('');setPrice('');setProductConfirmed(false);}}><option value="">Choose from this order</option>
-   {!!row.candidateIds.length&&<optgroup label="Suggested matches — check first">{record.lines.filter(l=>row.candidateIds.includes(l.id)).map(l=><option key={l.id} value={l.id}>{l.name} · {l.ordered} {l.unit} ordered</option>)}</optgroup>}
-   <optgroup label={row.candidateIds.length?'Other items on this order':'Items on this order'}>{record.lines.filter(l=>!row.candidateIds.includes(l.id)).map(l=><option key={l.id} value={l.id}>{l.name} · {l.ordered} {l.unit} ordered</option>)}</optgroup>
+  <Field label="Which ordered item is this?"><select value={lineId} disabled={disabled} onChange={e=>choose(e.target.value)}><option value="">Choose from this order</option>
+   {!!suggestedIds.length&&<optgroup label="Suggested matches — check first">{record.lines.filter(l=>suggestedIds.includes(l.id)).map(l=><option key={l.id} value={l.id}>{l.name} · {l.ordered} {l.unit} ordered</option>)}</optgroup>}
+   <optgroup label={suggestedIds.length?'Other items on this order':'Items on this order'}>{record.lines.filter(l=>!suggestedIds.includes(l.id)).map(l=><option key={l.id} value={l.id}>{l.name} · {l.ordered} {l.unit} ordered</option>)}</optgroup>
   </select></Field>
+  {!!suggestions.length&&<div aria-label="Suggested order items"><p className="ic-step-note">Suggested matches — confirm before saving:</p>{suggestions.map(s=><div key={s.lineId}><Button variant="quiet" disabled={disabled} onClick={()=>choose(s.lineId)}>{s.name}</Button><small style={{display:'block'}}>{s.reason}{s.warnings.length?' · '+s.warnings.join(' '):' · Check product and pack.'}</small></div>)}</div>}
+  {line&&comparison&&<div className="h-notice" aria-label="Pack and unit comparison">
+   <strong>Invoice → order unit</strong>
+   <p>{row.source.quantity??'?'} {row.source.unit||'unit unclear'} × {money(row.source.unitPrice??undefined)} · Printed line {money(row.source.netAmount??undefined)}</p>
+   <p>Agreed order price: {line.expectedPrice!=null&&line.expectedPrice>0?money(line.expectedPrice)+' per '+line.unit:'Not confirmed'}</p>
+   {comparison.canEnterPack&&<Field label={'Invoice units per ordered '+line.unit+' ('+(row.source.unit||'unit unclear')+')'}><input type="number" inputMode="decimal" min="0.000001" max="1000000" step="any" value={pack} disabled={disabled} placeholder="Use supplier pack label" onChange={e=>{setPack(e.target.value);setQuantity('');setPrice('');setReason('');setProductConfirmed(false);}}/></Field>}
+   <p role="status">{comparison.message}</p>
+   {comparison.proposal&&<><p><strong>{Number(comparison.proposal.quantity.toFixed(6))} {line.unit} × {money(comparison.proposal.unitPrice)} per {line.unit}</strong></p><Button variant="secondary" disabled={disabled} onClick={()=>{setQuantity(String(comparison.proposal!.quantity));setPrice(String(comparison.proposal!.unitPrice));}}>Use calculated draft</Button></>}
+  </div>}
   {line&&<><p className="ic-step-note">The order uses <strong>{line.unit}</strong>. Check the pack size, then enter both figures in that unit. No conversion is guessed.</p>
    <div className="ic-unit-inputs"><Field label={'Invoice quantity ('+line.unit+')'}><input type="number" inputMode="decimal" min="0" max="1000000" step="any" value={quantity} disabled={disabled} onChange={e=>setQuantity(e.target.value)}/></Field><Field label={'Invoice price per '+line.unit+' (£)'}><input type="number" inputMode="decimal" min="0" max="1000000" step="0.01" value={price} disabled={disabled} onChange={e=>setPrice(e.target.value)}/></Field></div>
    <p role="status" className={amountMatches?'ic-unit-total matched':'ic-unit-total'}>{total===null?'Enter both figures to check the total.':'Entered total £'+total.toFixed(2)} · Invoice line total {row.source.netAmount===null?'unreadable':'£'+row.source.netAmount.toFixed(2)}{total!==null&&!amountMatches?' — these must agree.':''}</p>
    {manual&&<label className="h-check"><input type="checkbox" checked={productConfirmed} disabled={disabled} onChange={e=>setProductConfirmed(e.target.checked)}/>I checked the product name/code and pack against this order item.</label>}
    <Field label="How did you check the pack or unit?"><input value={reason} maxLength={2000} disabled={disabled} placeholder="e.g. Supplier label confirms 12 packets in each ordered box" onChange={e=>setReason(e.target.value)}/></Field>
-   <Button variant="secondary" disabled={disabled||!valid} onClick={async()=>{const result=await confirm({page:row.source.page,row:row.source.row,lineId,quantity:Number(quantity),unitPrice:Number(price),reason,productConfirmed});if(result){setQuantity('');setPrice('');setReason('');setProductConfirmed(false);setLine(initialLine);}}}>Save item match & figures</Button>
+   <Button variant="secondary" disabled={disabled||!valid} onClick={async()=>{const result=await confirm({page:row.source.page,row:row.source.row,lineId,quantity:Number(quantity),unitPrice:Number(price),reason,productConfirmed});if(result){setQuantity('');setPrice('');setReason('');setProductConfirmed(false);setPack('');setLine(initialLine);}}}>Save item match & figures</Button>
   </>}
   <p className="ic-step-note">Unsure? Leave the figures blank and use Hold for information. Agreed prices will not change.</p>
  </div>;
@@ -66,7 +79,7 @@ export function InvoiceReadingPanel({record,busy,dirty,locked,preview,run,act,on
    {!!draft.extracted.blankRows?.length&&<details><summary>{draft.extracted.blankRows.length} blank catalogue row{draft.extracted.blankRows.length===1?'':'s'} — not charged</summary><p>{draft.extracted.blankRows.map(r=>r.description).join(' · ')}</p><p>Blank does not mean zero delivered or out of stock.</p></details>}
    {!!invoiceUnitReviewProblems(record).length&&<p className="ic-reading-next"><strong>Next:</strong> Open each row marked “Check item / units”. Match it to an ordered item and confirm the figures. Unclear rows stay on hold.</p>}
    <details className="ic-reading-warnings"><summary>Details needing correction or confirmation ({draft.warnings.length})</summary><ul>{draft.warnings.map((w,i)=><li key={i}>{w}</li>)}</ul></details>
-   {draft.rows.map(row=><details className="ic-issue ic-reading-row" key={row.source.page+':'+row.source.row}><summary><strong>{row.source.description}</strong><span className="ic-reading-row-status">{row.blankConfirmed?'Blank — not charged':row.blankReviewRequired?'Check blank row':hasConfirmedUnitReview(record,row.source.page,row.source.row)?'Item / units saved':row.unitReviewRequired?'Check item / units':row.mayUseFigures?'Draft match':'Review required'}</span><small>Invoice: {row.source.quantity??'?'} {row.source.unit||'units unclear'} × {money(row.source.unitPrice??undefined)} = {money(row.source.netAmount??undefined)}</small></summary>
+   {draft.rows.map(row=><details id={'ic-reading-row-'+row.source.page+'-'+row.source.row} tabIndex={-1} className="ic-issue ic-reading-row" key={row.source.page+':'+row.source.row}><summary><strong>{row.source.description}</strong><span className="ic-reading-row-status">{row.blankConfirmed?'Blank — not charged':row.blankReviewRequired?'Check blank row':hasConfirmedUnitReview(record,row.source.page,row.source.row)?'Item / units saved':row.unitReviewRequired?'Check item / units':row.mayUseFigures?'Draft match':'Review required'}</span><small>Invoice: {row.source.quantity??'?'} {row.source.unit||'units unclear'} × {money(row.source.unitPrice??undefined)} = {money(row.source.netAmount??undefined)}</small></summary>
     <div className="ic-reading-row-body">
      <UnitReview record={record} row={row} disabled={busy||dirty||lockedReading} confirm={data=>act('confirm-reading-units',data)} onEditing={onEditing}/>
      <InvoiceBlankRowReview record={record} row={row} disabled={busy||dirty||lockedReading} act={act} onEditing={onEditing}/>
