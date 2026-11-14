@@ -1,0 +1,17 @@
+.ic-match-form{max-width:860px;padding:8px 0;color:#263e35;overflow-wrap:anywhere}
+.ic-match-form .h-field{margin:10px 0;min-width:0}
+.ic-match-form .h-field>input,.ic-match-form .h-field>select{font-size:16px;min-height:44px;width:100%;max-width:100%;box-sizing:border-box}
+.ic-match-form h4{font-size:16px;margin:16px 0 8px}
+.ic-match-comparison{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin:12px 0;padding:12px 0;border-block:1px solid #dce2d6;font-variant-numeric:tabular-nums}
+.ic-match-comparison>div{display:grid;gap:4px;align-content:start;min-width:0}
+.ic-match-comparison span,.ic-match-comparison small{font-size:14px;color:#52634b}
+.ic-match-comparison strong{font-size:16px}
+.ic-match-warning{font-size:14px;color:#704910;margin:8px 0;line-height:1.5}
+.ic-match-result{display:grid;gap:4px;background:#eef4e9;padding:10px 12px;font-variant-numeric:tabular-nums}
+.ic-match-result span,.ic-match-save small{font-size:14px}
+.ic-match-form>.h-button.quiet{min-height:44px;padding:8px 0;text-decoration:underline;text-underline-offset:3px}
+.ic-match-check{display:flex;gap:10px;align-items:center;min-height:44px;margin:8px 0;font-size:15px;cursor:pointer}
+.ic-match-check input{width:20px;height:20px;flex:none;accent-color:#3f5d32}
+.ic-match-save{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.ic-match-save .h-button{min-height:44px}.ic-match-manual p{font-size:14px}
+@media(max-width:600px){.ic-match-comparison{gap:10px}.ic-match-comparison strong{font-size:15px}.ic-match-save{display:grid;gap:8px}.ic-match-save .h-button{width:100%}.ic-match-manual .ic-match-comparison{grid-template-columns:1fr}}
