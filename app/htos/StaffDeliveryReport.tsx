@@ -1,3 +1,4 @@
+import {StaffReportSummary} from './StaffUploadSummary';
 import {useInvoiceUploadPending} from './InvoiceUploadPreview';
 import {LaterDeliveries} from './LaterDeliveries';
 import React,{useEffect,useState} from 'react';
@@ -38,7 +39,8 @@ export function StaffDeliveryReport({order,onClose,showOriginal=false}:{order:Or
   {error&&<p role="alert" className="h-notice error">{error}</p>}
   {saved&&<p role="status" className="h-notice">{saved}</p>}
   {!record||!draft?<p role="status">{error?'Your report has not been changed.':'Loading delivery report…'}</p>:<>
-   <details className="ic-original-report" open={!locked||showOriginal}><summary hidden={!locked}>First delivery report — locked</summary>{locked&&<CaseDocuments record={record} ids={record.documents.filter(d=>['INVOICE','DELIVERY','EVIDENCE'].includes(d.kind)).map(d=>d.id)}/>}<fieldset disabled={busy||locked} className="ic-fieldset">
+   {(locked||record.documents.some(d=>d.kind==='INVOICE'||d.kind==='DELIVERY'))&&<StaffReportSummary record={record}/>}
+   <details className="ic-original-report" open={!locked||showOriginal}><summary hidden={!locked}>View saved delivery report</summary>{locked&&<CaseDocuments record={record} ids={record.documents.filter(d=>['INVOICE','DELIVERY','EVIDENCE'].includes(d.kind)).map(d=>d.id)}/>}<fieldset disabled={busy||locked} className="ic-fieldset">
     <section className="ic-section">
      <h3>1. Upload invoice or delivery note</h3>
      {!locked&&<div className="ic-upload-grid">
@@ -51,7 +53,7 @@ export function StaffDeliveryReport({order,onClose,showOriginal=false}:{order:Or
     <section className="ic-section">
      <h3>2. Tell Accounts what arrived</h3>
      <div className="ic-status-options">{Object.entries(staffStatuses).map(([key,label])=><label key={key} className={draft.statuses.includes(key as ReceiptStatus)?'selected':''}><input type="checkbox" checked={draft.statuses.includes(key as ReceiptStatus)} onChange={e=>toggle(key as ReceiptStatus,e.target.checked)}/>{label}</label>)}</div>
-     <p className="ic-step-note">Choose all issues, or Received if there are none. HTOS still checks the invoice against the order and agreed prices.</p>
+     <p className="ic-step-note">Choose Received if everything arrived, or select the issues.</p>
      {(Object.keys(staffStatuses) as ReceiptStatus[]).filter((s):s is ReceiptIssue['kind']=>s!=='RECEIVED'&&draft.statuses.includes(s)).map(status=><section key={status} className="ic-issue-group">
       <div className="ic-row"><h4>{staffStatuses[status]}{status==='OTHER'?'':' items'}</h4><Button variant="secondary" onClick={()=>addIssue(status)}>Add {status==='OTHER'?'description':'item'}</Button></div>
       {status==='OUT_OF_STOCK'&&<p className="ic-step-note">Select the item only: none arrived and the supplier confirmed no stock. Use Missing if some arrived.</p>}

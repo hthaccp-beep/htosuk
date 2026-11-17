@@ -2,8 +2,8 @@ import {suggestInvoiceItems,type ItemSuggestion} from './invoice-match-assistanc
 import {lineDiscrepancy,receiptStatusLabels,type InvoiceCase} from './invoice-case.ts';
 import {invoiceExtractionDraft,matchInvoiceExtraction} from './invoice-extraction.ts';
 import {hasConfirmedUnitReview,currentUnitReviews} from './invoice-unit-review.ts';
-export interface InvoiceReadingSummary {name:string;quantity?:number;unit:string;price?:number;amount?:number;page:number;row:number}
-export interface ItemReviewRow {matchSuggestions?:ItemSuggestion[];readings?:InvoiceReadingSummary[];readingStale?:boolean;id:string;lineId?:string;name:string;unit:string;ordered?:number;received?:number;billed?:number;reports:string[];notes:string[];followUp:string[];expectedPrice?:number;invoicePrice?:number;priceCheck:'MATCH'|'HIGHER'|'LOWER'|'UNKNOWN'|'UNMATCHED';priceDifference?:number;attention:boolean;action:'ITEM'|'SCAN';result:string}
+export interface InvoiceReadingSummary {code?:string;priceUnit?:string;name:string;quantity?:number;unit:string;price?:number;amount?:number;page:number;row:number}
+export interface ItemReviewRow {code?:string;unitCheckRequired?:boolean;figuresComparable?:boolean;matchSuggestions?:ItemSuggestion[];readings?:InvoiceReadingSummary[];readingStale?:boolean;id:string;lineId?:string;name:string;unit:string;ordered?:number;received?:number;billed?:number;reports:string[];notes:string[];followUp:string[];expectedPrice?:number;invoicePrice?:number;priceCheck:'MATCH'|'HIGHER'|'LOWER'|'UNKNOWN'|'UNMATCHED';priceDifference?:number;attention:boolean;action:'ITEM'|'SCAN';result:string}
 const gbp=(pence:number)=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(pence/100);
 const finite=(n:unknown):n is number=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
 /** Legacy zero snapshots have no evidence that a free price was agreed. Display only; keep the stored value. */
@@ -18,7 +18,7 @@ export function invoiceItemReview(record:InvoiceCase):ItemReviewRow[]{
  const current=!!saved&&record.documents.some(d=>d.id===saved.documentId&&d.sha256===saved.documentHash);
  // Only an existing unique match or explicit allocation can pair an invoice row. Never guess product identity.
  const target=(r:NonNullable<typeof scan>['rows'][number])=>allocated(r.source.page,r.source.row)||r.lineId||(r.candidateIds.length===1?r.candidateIds[0]:undefined);
- const reading=(r:NonNullable<typeof scan>['rows'][number]):InvoiceReadingSummary=>({name:r.source.description,quantity:r.source.quantity??undefined,unit:r.source.unit||'Unit unclear',price:r.source.unitPrice??undefined,amount:r.source.netAmount??undefined,page:r.source.page,row:r.source.row});
+ const reading=(r:NonNullable<typeof scan>['rows'][number]):InvoiceReadingSummary=>({code:r.source.code||undefined,priceUnit:r.source.priceUnit||r.source.unit||undefined,name:r.source.description,quantity:r.source.quantity??undefined,unit:r.source.unit||'Unit unclear',price:r.source.unitPrice??undefined,amount:r.source.netAmount??undefined,page:r.source.page,row:r.source.row});
  const rows:ItemReviewRow[]=record.lines.map(line=>{
   const issues=record.receipt.issues.filter(i=>i.lineId===line.id),claim=record.claim?.lines.find(c=>c.lineId===line.id);
   const linked=scan?.rows.filter(r=>!r.blankConfirmed&&target(r)===line.id)||[];
@@ -44,7 +44,7 @@ export function invoiceItemReview(record:InvoiceCase):ItemReviewRow[]{
   if(!followUp.length&&issues.length)followUp.push(issuesResolved?'Accounts accepted / resolved':'Choose replacement, credit or other resolution');
   const d=lineDiscrepancy(record,line),attention=priceCheck==='UNKNOWN'&&line.invoiceQuantity!==0||!line.reviewed||!d.known||pending>0||remainingClaim>0||!issuesResolved||line.resolution==='PENDING'||line.resolution==='HOLD'||line.resolution==='CLAIM'&&(!claim||record.claim?.state!=='SENT')||unclear;
   const result=!hasKnownAgreedPrice(line.expectedPrice)&&line.invoiceQuantity!==0?'Check agreed price':linked.length>1?'Check repeated invoice rows':unclear||priceCheck==='UNKNOWN'&&line.invoiceQuantity!==0?'Check price / unit':line.resolution==='HOLD'?'On hold':pending?'Confirm replacement':remainingClaim?'Follow up claim':!line.reviewed||!d.known?'Accounts to check':!issuesResolved?'Resolve delivery issue':d.hasDifference||issues.length?'Resolution recorded':'Checks complete';
-  return {readings:linked.map(reading),readingStale:!!saved&&!current,id:line.id,lineId:line.id,name:line.name,unit:line.unit,ordered:line.ordered,received:line.received,billed:line.invoiceQuantity,reports:issues.map(i=>receiptStatusLabels[i.kind]+(finite(i.quantity)?' · '+i.quantity+' '+line.unit:'')),notes:issues.map(i=>i.notes).filter(Boolean),followUp,expectedPrice:line.expectedPrice,invoicePrice:line.invoicePrice,priceCheck,priceDifference:delta,attention,action:unclear||linked.length>0&&line.invoiceQuantity==null?'SCAN' as const:'ITEM' as const,result};
+  return {code:line.code,unitCheckRequired:linked.some(r=>r.unitReviewRequired&&!hasConfirmedUnitReview(record,r.source.page,r.source.row)),figuresComparable:basisKnown,readings:linked.map(reading),readingStale:!!saved&&!current,id:line.id,lineId:line.id,name:line.name,unit:line.unit,ordered:line.ordered,received:line.received,billed:line.invoiceQuantity,reports:issues.map(i=>receiptStatusLabels[i.kind]+(finite(i.quantity)?' · '+i.quantity+' '+line.unit:'')),notes:issues.map(i=>i.notes).filter(Boolean),followUp,expectedPrice:line.expectedPrice,invoicePrice:line.invoicePrice,priceCheck,priceDifference:delta,attention,action:unclear||linked.length>0&&line.invoiceQuantity==null?'SCAN' as const:'ITEM' as const,result};
  });
  for(const row of scan?.rows||[]){
   if(row.blankConfirmed||target(row))continue;

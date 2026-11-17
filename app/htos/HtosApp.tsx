@@ -88,7 +88,7 @@ export function Workspace() {
   const phoneBottomPaths=['/','/new-order','/orders','/deliveries','/checks'];
   const phonePaths=[...phoneBottomPaths,'/checklists'];
   const incomingAssigned=!!user&&incomingSupplierBranches(user,branches).length>0;
-  const availableNavigation=navigation.filter(n=>(!phone||phonePaths.includes(n.path))&&(!n.permission||can(user,n.permission)||(n.path==='/checks'&&import.meta.env.VITE_ENABLE_INVOICE_CASES==='true'&&can(user,'review_invoices')&&can(user,'view_prices')))&&(n.path!=='/deliveries'||incomingAssigned));
+  const availableNavigation=navigation.filter(n=>(!phone||phonePaths.includes(n.path))&&(!n.permission||can(user,n.permission)||(n.path==='/checks'&&import.meta.env.VITE_ENABLE_INVOICE_CASES==='true'&&can(user,'review_invoices')&&can(user,'view_prices')))&&(n.path!=='/deliveries'||incomingAssigned)).map(n=>n.path==='/checks'&&import.meta.env.VITE_ENABLE_INVOICE_CASES==='true'?{...n,label:can(user,'review_invoices')&&can(user,'view_prices')?'Accounts invoice review':'Upload & delivery'}:n);
   const phoneHome=availableNavigation[0]?.path;
   const mobileRedirect=phone&&!phonePaths.includes(location.pathname);
   useEffect(()=>{const changed=()=>setOnline(navigator.onLine);window.addEventListener('online',changed);window.addEventListener('offline',changed);return()=>{window.removeEventListener('online',changed);window.removeEventListener('offline',changed);};},[]);

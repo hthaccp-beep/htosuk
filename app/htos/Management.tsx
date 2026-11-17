@@ -1,9 +1,15 @@
+import {CreditNoteReports} from './CreditNoteReports';
 import React,{useState} from 'react';
 import {Download} from 'lucide-react';
 import {can,useAppStore} from '../../store';
 import {Button,Field,Heading,Panel,Empty,money,today,total,day,shortId,csv,useAction} from './ui';
 export {Administration} from './Administration';
 export function Reports(){
+  const store=useAppStore(),[view,setView]=useState('orders');
+  const allowed=can(store.currentUser,'view_reports')&&can(store.currentUser,'review_invoices')&&can(store.currentUser,'view_prices');
+  return <>{allowed&&<div className="h-tabs" aria-label="Report type"><button type="button" className={view==='orders'?'active':''} aria-pressed={view==='orders'} onClick={()=>setView('orders')}>Orders</button><button type="button" className={view==='credits'?'active':''} aria-pressed={view==='credits'} onClick={()=>setView('credits')}>Credit notes</button></div>}{allowed&&view==='credits'?<CreditNoteReports branches={store.branches} suppliers={store.suppliers}/>:<OrderReports/>}</>;
+}
+function OrderReports(){
   const store=useAppStore(),action=useAction();const [from,setFrom]=useState(today().slice(0,7)+'-01'),[to,setTo]=useState(today()),[branch,setBranch]=useState(''),[supplier,setSupplier]=useState('');
   const orders=store.orders.filter(o=>o.status==='PLACED'&&o.createdAt.slice(0,10)>=from&&o.createdAt.slice(0,10)<=to&&(!branch||o.branchId===branch)&&(!supplier||o.supplierId===supplier));
   const showPrices=can(store.currentUser,'view_prices');
