@@ -39,16 +39,19 @@ export async function invoiceCaseAction(db:any,uid:string,body:any,enabled=false
   if(!Array.isArray(body.orderIds)||body.orderIds.length>100)throw new InvoiceCaseError('Choose up to 100 loaded orders.');
   const ids=[...new Set<string>(body.orderIds.map(id))];
   const summaries=[];
-  // Exact loaded orders only: never enumerate the private collection for staff.
-  for(const orderId of ids){
-   const orderSnap=await db.collection('orders').doc(orderId).get();
-   if(!orderSnap.exists)throw new InvoiceCaseError('Order not available.',404);
-   const order=orderSnap.data();access(user,roles,order);
-   if(order.invoiceVerification||order.deliveryCheck||order.supplierCase)continue;
-   const snap=await db.collection('_invoice_cases').doc(orderId).get();
-   const record=snap.exists?snap.data() as InvoiceCase:undefined;
-   if(record)access(user,roles,record);
-   summaries.push(invoiceReceiptSummary(orderId,record));
+  // Exact loaded orders only. Bound parallel reads and authorise each order before its private case.
+  for(let start=0;start<ids.length;start+=5){
+   const batch=await Promise.all(ids.slice(start,start+5).map(async orderId=>{
+    const orderSnap=await db.collection('orders').doc(orderId).get();
+    if(!orderSnap.exists)throw new InvoiceCaseError('Order not available.',404);
+    const order=orderSnap.data();access(user,roles,order);
+    if(order.invoiceVerification||order.deliveryCheck||order.supplierCase)return null;
+    const snap=await db.collection('_invoice_cases').doc(orderId).get();
+    const record=snap.exists?snap.data() as InvoiceCase:undefined;
+    if(record)access(user,roles,record);
+    return invoiceReceiptSummary(orderId,record);
+   }));
+   for(const summary of batch)if(summary)summaries.push(summary);
   }
   return {summaries};
  }

@@ -10,14 +10,14 @@ import {sampleOrder,sampleReviewed} from './fixtures/invoice-workflow.ts';
 import {attachInvoiceExtraction} from '../shared/invoice-extraction.ts';
 import {invoiceItemIssueLabels} from '../shared/invoice-issue-labels.ts';
 
-test('unmatched readings are not counted a second time as ordered items',()=>{
+test('suggested pairs are counted once and carry no confirmed allocation',()=>{
  const r=extractionCase(),f=extractionFixture();f.rows.forEach(row=>{row.code='SUPPLIER-'+row.row;});
  const next=attachInvoiceExtraction(r,r.documents[0].id,f),before=structuredClone(next),rows=invoiceItemReview(next);
- assert.deepEqual(invoiceItemCounts(rows),{items:5,unmatched:5});
- assert.equal(invoiceRecordStatus(next).label,'5 items to check · 5 invoice rows to match');
+ assert.deepEqual(invoiceItemCounts(rows),{items:5,unmatched:0});
+ assert.equal(invoiceRecordStatus(next).label,'5 items to check');
  assert.equal(invoiceReviewGuide(next).itemLabel,invoiceRecordStatus(next).label);
  assert.equal(historyInvoiceStatus(sampleOrder,invoiceReceiptSummary(next.id,next),true).label,invoiceRecordStatus(next).label);
- assert.equal(rows.filter(row=>row.lineId).length,5);assert.deepEqual(next,before);
+ assert.ok(rows.every(row=>row.suggestedMatch&&!row.figuresComparable));assert.equal(rows.filter(row=>row.lineId).length,5);assert.deepEqual(next,before);
 });
 test('unique product match keeps raw invoice units and price beside the order without converting',()=>{
  const r=extractionCase(),f=extractionFixture();f.rows[0].unit='packet';f.rows[0].quantity=24;f.rows[0].unitPrice=2;f.rows[0].netAmount=48;

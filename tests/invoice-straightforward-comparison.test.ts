@@ -21,7 +21,7 @@ test('pack mismatch shows raw invoice units with Check pack, never a false price
  const r=extractionCase(),f=extractionFixture();f.rows[0].unit='packet';f.rows[0].quantity=24;f.rows[0].unitPrice=2;f.rows[0].netAmount=48;
  const next=attachInvoiceExtraction(r,r.documents[0].id,f),row=invoiceComparison(next)[0];
  assert.equal(row.billedDisplay,24);assert.equal(row.billedUnit,'packet');assert.equal(row.priceDisplay,2);assert.equal(row.priceUnit,'packet');
- assert.ok(row.issues.includes('Check pack'));assert.equal(row.issues.some(s=>s.startsWith('Price ')),false);assert.equal(row.matches,false);assert.equal(row.draftFigures,true);
+ assert.ok(row.issues.includes('Confirm pack size / unit'));assert.equal(row.issues.some(s=>s.startsWith('Price ')),false);assert.equal(row.matches,false);assert.equal(row.draftFigures,true);
 });
 test('known same quantities and prices can match without approving invoice',()=>{
  const r=itemReviewSample(),before=structuredClone(r);const row=invoiceComparison(r)[4];

@@ -3,7 +3,7 @@ import {lineDiscrepancy,receiptStatusLabels,type InvoiceCase} from './invoice-ca
 import {invoiceExtractionDraft,matchInvoiceExtraction} from './invoice-extraction.ts';
 import {hasConfirmedUnitReview,currentUnitReviews} from './invoice-unit-review.ts';
 export interface InvoiceReadingSummary {code?:string;priceUnit?:string;name:string;quantity?:number;unit:string;price?:number;amount?:number;page:number;row:number}
-export interface ItemReviewRow {code?:string;unitCheckRequired?:boolean;figuresComparable?:boolean;matchSuggestions?:ItemSuggestion[];readings?:InvoiceReadingSummary[];readingStale?:boolean;id:string;lineId?:string;name:string;unit:string;ordered?:number;received?:number;billed?:number;reports:string[];notes:string[];followUp:string[];expectedPrice?:number;invoicePrice?:number;priceCheck:'MATCH'|'HIGHER'|'LOWER'|'UNKNOWN'|'UNMATCHED';priceDifference?:number;attention:boolean;action:'ITEM'|'SCAN';result:string}
+export interface ItemReviewRow {suggestedMatch?:ItemSuggestion;code?:string;unitCheckRequired?:boolean;figuresComparable?:boolean;matchSuggestions?:ItemSuggestion[];readings?:InvoiceReadingSummary[];readingStale?:boolean;id:string;lineId?:string;name:string;unit:string;ordered?:number;received?:number;billed?:number;reports:string[];notes:string[];followUp:string[];expectedPrice?:number;invoicePrice?:number;priceCheck:'MATCH'|'HIGHER'|'LOWER'|'UNKNOWN'|'UNMATCHED';priceDifference?:number;attention:boolean;action:'ITEM'|'SCAN';result:string}
 const gbp=(pence:number)=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(pence/100);
 const finite=(n:unknown):n is number=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
 /** Legacy zero snapshots have no evidence that a free price was agreed. Display only; keep the stored value. */
@@ -50,5 +50,20 @@ export function invoiceItemReview(record:InvoiceCase):ItemReviewRow[]{
   if(row.blankConfirmed||target(row))continue;
   rows.push({matchSuggestions:suggestInvoiceItems(record,row.source),readings:[reading(row)],readingStale:!current,id:'scan:'+row.source.page+':'+row.source.row,name:row.source.description||'Unclear invoice row',unit:row.source.unit||'Unit unclear',ordered:undefined,received:undefined,billed:row.source.quantity??undefined,reports:[row.blankReviewRequired?'Possibly blank — check original':'Not matched to an ordered item'],notes:[],followUp:['Accounts must identify this item before accepting any charge'],expectedPrice:undefined,invoicePrice:row.source.unitPrice??undefined,priceCheck:'UNMATCHED',priceDifference:undefined,attention:true,action:'SCAN',result:'Review invoice item',lineId:undefined});
  }
- return rows;
+ const proposals=rows.filter(r=>!r.lineId&&!r.readingStale&&r.matchSuggestions?.length).flatMap(r=>{
+  const [best,second]=r.matchSuggestions!;
+  const item=rows.find(item=>item.lineId===best.lineId);
+  if(best.score<80||second&&best.score-second.score<12||!item||item.readings?.length)return [];
+  return [{reading:r,item,best}];
+ });
+ const grouped=new Set<string>();
+ for(const proposal of proposals){
+  if(proposals.filter(p=>p.item.id===proposal.item.id).length!==1)continue;
+  const {item,reading,best}=proposal;
+  item.suggestedMatch=best;item.readings=reading.readings;
+  item.figuresComparable=false;item.priceCheck='UNKNOWN';item.priceDifference=undefined;
+  item.attention=true;item.action='SCAN';item.result='Confirm suggested match';
+  grouped.add(reading.id);
+ }
+ return rows.filter(r=>!grouped.has(r.id));
 }

@@ -11,9 +11,10 @@ function current(record:InvoiceCase){const d=record.extraction.draft as InvoiceE
 export function suggestInvoiceItems(record:InvoiceCase,row:ExtractedInvoiceRow):ItemSuggestion[]{
  if(!current(record)||[row.quantity,row.unitPrice,row.netAmount,row.weightQuantity].every(n=>n==null))return [];
  const a=tokens(row.description);if(!a.length&&!row.code)return [];
+ const sourceCode=row.code||row.description.match(/^\s*([a-z0-9]*\d[a-z0-9]*)\s*[-–]\s*/i)?.[1];
  const result=record.lines.flatMap(line=>{
   if(row.orderReference&&reference(row.orderReference)!==reference(line.orderId))return [];
-  const b=tokens(line.name),sameCode=!!row.code&&!!line.code&&normal(row.code)===normal(line.code),sameName=normal(row.description)===normal(line.name);
+  const b=tokens(line.name),sameCode=!!sourceCode&&!!line.code&&normal(sourceCode)===normal(line.code),sameName=normal(row.description)===normal(line.name);
   const common=a.filter(t=>b.includes(t)),overlap=common.length/Math.max(1,Math.min(a.length,b.length));
   if(!sameCode&&!sameName&&(!common.length||overlap<0.6||common.length===1&&Math.min(a.length,b.length)>1))return [];
   // A bag containing crackers is not a suggestion for a plastic bag, nor a shared size a product identity.
@@ -21,7 +22,7 @@ export function suggestInvoiceItems(record:InvoiceCase,row:ExtractedInvoiceRow):
   const warnings:string[]=[];
   if(sameCode&&!sameName)warnings.push('Code matches, but wording differs — confirm product and variant.');
   if(!sameCode&&!sameName)warnings.push('Confirm the full product name, brand and variant.');
-  if(row.code&&line.code&&!sameCode)warnings.push('Supplier code differs from the order code.');
+  if(sourceCode&&line.code&&!sameCode)warnings.push('Supplier code differs from the order code.');
   for(const group of [['small','big','large'],['red','green','orange'],['fresh','frozen'],['salted','unsalted']]){const x=a.filter(t=>group.includes(t)),y=b.filter(t=>group.includes(t));if(x.length&&y.length&&!x.some(t=>y.includes(t)))return [];}
   if(row.uncertain.length)warnings.push('The saved reading has unresolved flags.');
   const score=sameCode?100:sameName?95:Math.round(65+25*(2*common.length/(a.length+b.length)));

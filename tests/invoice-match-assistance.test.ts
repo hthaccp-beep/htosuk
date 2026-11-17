@@ -48,7 +48,7 @@ test('unknown agreed price stays unknown and partial delivery has no pack hint',
  const c=compareInvoiceUnits(r,row,line);assert.equal(c.orderTotal,undefined);assert.equal(c.totalsAgree,undefined);assert.equal(c.packHint,undefined);
 });
 test('invalid pack factors cannot calculate',()=>{const {r,row}=setup();r.lines[0].unit='box';row.unit='packet';for(const n of [0,-1,NaN,Infinity,1000001])assert.equal(compareInvoiceUnits(r,row,r.lines[0],n).proposal,undefined);});
-test('suggestions do not reduce unmatched counts or change saved financial figures',()=>{
+test('unique suggestions are grouped for display without changing saved financial figures',()=>{
  let r=extractionCase();r.lines[0].name='Green Pak Choy';const f=extractionFixture();f.rows[0].code=null;f.rows[0].description='GREEN PAKCHOY 青白菜';r=attachInvoiceExtraction(r,r.documents[0].id,f);
- const before=JSON.stringify(r),view=invoiceItemReview(r),scan=view.find(v=>!v.lineId)!;assert.ok(scan.matchSuggestions?.length);assert.equal(invoiceItemCounts(view).unmatched,1);assert.equal(JSON.stringify(r),before);
+ const before=JSON.stringify(r),view=invoiceItemReview(r),paired=view.find(v=>v.suggestedMatch)!;assert.ok(paired.suggestedMatch);assert.equal(paired.figuresComparable,false);assert.equal(invoiceItemCounts(view).unmatched,0);assert.equal(JSON.stringify(r),before);
 });

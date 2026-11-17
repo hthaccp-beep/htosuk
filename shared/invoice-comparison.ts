@@ -11,11 +11,12 @@ export interface ComparisonRow extends ItemReviewRow {
 export function invoiceComparison(record:InvoiceCase):ComparisonRow[]{
  return invoiceItemReview(record).map(r=>{
   const readings=r.readings||[],single=readings.length===1?readings[0]:undefined;
-  const comparable=r.figuresComparable===true&&!r.readingStale&&readings.length<=1;
+  const comparable=!r.suggestedMatch&&r.figuresComparable===true&&!r.readingStale&&readings.length<=1;
   const issues=[...r.reports];
+  if(r.suggestedMatch)issues.push('Confirm suggested match');
   if(r.readingStale)issues.push('Check document version');
   if(readings.length>1)issues.push('Check repeated invoice rows');
-  else if(r.unitCheckRequired)issues.push('Check pack');
+  else if(r.unitCheckRequired)issues.push('Confirm pack size / unit');
   if(r.lineId){
    if(!known(r.received))issues.push('Received quantity not confirmed');
    else if(known(r.ordered)&&r.received<r.ordered&&!r.reports.some(s=>s.startsWith('Missing')||s.startsWith('Out of stock')))issues.push(`Missing ${r.ordered-r.received} ${r.unit}`);
@@ -23,7 +24,7 @@ export function invoiceComparison(record:InvoiceCase):ComparisonRow[]{
    if(comparable&&known(r.billed)&&known(r.received)&&r.billed!==r.received)issues.push(`Invoiced ${r.billed}; received ${r.received} ${r.unit}`);
    if(!hasKnownAgreedPrice(r.expectedPrice)&&r.billed!==0)issues.push('Agreed price not confirmed');
    if(r.priceCheck==='HIGHER'||r.priceCheck==='LOWER')issues.push(`Price ${r.priceCheck==='HIGHER'?'+':'−'}£${(Math.abs(r.priceDifference!)/100).toFixed(2)} / ${r.unit}`);
-   if(!r.unitCheckRequired&&!r.readingStale&&readings.length<2&&(!comparable||!known(r.billed)||(!known(r.invoicePrice)&&r.billed!==0)))issues.push('Check invoice figures');
+   if(!r.suggestedMatch&&!r.unitCheckRequired&&!r.readingStale&&readings.length<2&&(!comparable||!known(r.billed)||(!known(r.invoicePrice)&&r.billed!==0)))issues.push('Check invoice figures');
    if(r.result==='On hold')issues.push('On hold');
   }
   const matches=!!r.lineId&&comparable&&r.priceCheck==='MATCH'&&known(r.ordered)&&known(r.received)&&known(r.billed)&&r.ordered===r.received&&r.received===r.billed&&issues.length===0;
