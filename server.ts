@@ -1,6 +1,19 @@
 import { config as loadEnvironment } from 'dotenv';
 const cloudPreview = process.argv.includes('--cloud');
 loadEnvironment({ path: cloudPreview ? '.env.cloud.local' : '.env.local', quiet: true });
+if (!cloudPreview && process.env.NODE_ENV !== 'production' && !process.env.HTOS_MODE) {
+  Object.assign(process.env, {
+    HTOS_MODE: 'emulator',
+    FIREBASE_PROJECT_ID: 'demo-htos',
+    FIRESTORE_EMULATOR_HOST: '127.0.0.1:8085',
+    FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9095',
+    VITE_HTOS_MODE: process.env.VITE_HTOS_MODE || 'emulator',
+    VITE_FIREBASE_PROJECT_ID: process.env.VITE_FIREBASE_PROJECT_ID || 'demo-htos',
+  });
+} else if (process.env.NODE_ENV !== 'production' && process.env.HTOS_MODE === 'cloud' && process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+  if (process.env.FIRESTORE_EMULATOR_HOST === '127.0.0.1:8085') delete process.env.FIRESTORE_EMULATOR_HOST;
+  if (process.env.FIREBASE_AUTH_EMULATOR_HOST === '127.0.0.1:9095') delete process.env.FIREBASE_AUTH_EMULATOR_HOST;
+}
 import { validateCloudSetup } from './server/htos-runtime.ts';
 if (cloudPreview) validateCloudSetup(process.env);
 import { getAdmin } from './api/firebase-admin.ts';
@@ -19,6 +32,7 @@ import scanInvoiceHandler from './api/scan-invoice';
 import ocrHandler from './api/ocr';
 import authSyncHandler from './api/auth-sync';
 import { priceChangeApiHandler } from './api/admin/price-change';
+import release from './app-version.json' with { type: 'json' };
 
 if (process.env.SMTP_SECURE && !['true', 'false'].includes(process.env.SMTP_SECURE.toLowerCase())) {
   if (!process.env.SMTP_FROM_NAME) {
@@ -46,7 +60,7 @@ async function verifyActiveUser(authHeader: string | undefined): Promise<boolean
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT || 3005);
+  const PORT = Number(process.env.PORT || 3000);
 
   // Polyfill `req.body` wrapper to simulate VercelRequest behavior for existing files
   function vercelAdapter(handler: any) {
@@ -97,10 +111,32 @@ async function startServer() {
 
   // Vite integration
   if (process.env.NODE_ENV !== "production") {
+    app.get('/app-version.json', (req, res, next) => {
+      if ('import' in req.query) return next();
+      res.setHeader('Cache-Control', 'no-store, max-age=0');
+      res.json(release);
+    });
+    app.get('/sw.js', (_req, res) => {
+      res.setHeader('Cache-Control', 'no-store, max-age=0');
+      res.type('application/javascript').send(
+        `self.addEventListener('message',event=>{if(event.data?.type==='HTOS_RELEASE')event.ports?.[0]?.postMessage({version:${JSON.stringify(release.version)}});});`
+      );
+    });
     const vite = await createViteServer({
       mode: cloudPreview ? 'cloud' : 'development',
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, allowedHosts: true },
       appType: "spa",
+    });
+    app.get(['/draft-table', '/sample-check'], async (req, res, next) => {
+      try {
+        const fs = await import('node:fs/promises');
+        const raw = await fs.readFile(path.join(process.cwd(), 'tests', 'ui-preview.html'), 'utf8');
+        const injected = raw.replace('<head>', '<head><script>window.__HTOS_PREVIEW_DEFAULT="table";</script>');
+        const html = await vite.transformIndexHtml(req.originalUrl, injected);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+      } catch (err) {
+        next(err);
+      }
     });
     app.use(vite.middlewares);
   } else {
@@ -111,7 +147,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "127.0.0.1", () => {
+  app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }

@@ -8,7 +8,7 @@
 .ic-stock-summary{display:grid;gap:6px;align-self:center;font-size:14px}
 .ic-stock-summary small{color:#53634b}
 .ic-order-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.ic-accounts .ic-toolbar{gap:8px;margin-bottom:12px}
+.ic-accounts .ic-toolbar{gap:8px;margin-bottom:12px;align-items:center}
 .ic-accounts .ic-summary{margin:12px 0;gap:8px}
 .ic-accounts .ic-summary>div{padding:12px}
 .ic-accounts .ic-summary strong{font-size:1.2rem;margin-top:4px}
@@ -120,3 +120,81 @@
 #ic-review-reading{scroll-margin-top:90px}
 
 .ic-unconfirmed-summary{font-size:15px;color:#45573e;margin:12px 0 18px;line-height:1.5}.ic-review-steps button:nth-child(2){background:#e4eddc}.ic-review-steps button:nth-child(2):hover{background:#d7e4cb}
+
+/* Simple side-by-side Order vs Receive invoice check table (matched to HTOS tokens) */
+.ic-simple-context{margin-bottom:18px}
+.ic-simple-context-top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:16px;padding:18px 22px}
+.ic-simple-context-main{flex:1 1 340px;min-width:0;display:grid;gap:8px}
+.ic-simple-report-line{font-size:13px;line-height:1.55;color:#213b35}
+.ic-simple-report-line strong{color:var(--forest,#173a31)}
+.ic-simple-subnote{font-size:12px;color:var(--muted,#728078);line-height:1.5}
+.ic-simple-context-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.ic-simple-context-tools{border-top:1px solid #edf0e9;padding:10px 22px 14px;display:grid;gap:8px;background:#fafbf7}
+.ic-simple-context-tools .ic-section{border-bottom:0;margin-bottom:0;padding:8px 0}
+.ic-simple-context-tools summary{cursor:pointer;font-size:12.5px;font-weight:600;color:#27483b;min-height:32px;display:flex;align-items:center;gap:6px}
+.ic-simple-toggle-label{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:#213b35;cursor:pointer;white-space:nowrap;padding:6px 10px;border:1px solid var(--line,#e4e8df);border-radius:8px;background:#fafbf7;min-height:36px}
+.ic-simple-shell{margin-bottom:20px}
+.ic-simple-shell-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px 20px;padding:16px 22px;border-bottom:1px solid #edf0e9;background:#fff}
+.ic-simple-shell-title{display:grid;gap:6px}
+.ic-simple-shell-title h2{font-size:15px;font-weight:700;letter-spacing:-.25px;color:var(--forest,#173a31);margin:0}
+.ic-simple-key{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:11.5px;color:#4a5a52}
+.ic-simple-key-item{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.ic-simple-swatch{width:10px;height:10px;border-radius:3px;display:inline-block;flex-shrink:0}
+.ic-simple-swatch.price{background:#fae7bc;border:1px solid #c9923b}
+.ic-simple-swatch.detail{background:#dce7f8;border:1px solid #6b91c9}
+.ic-simple-swatch.qty{background:#fcdcd4;border:1px solid #d16b58}
+.ic-simple-swatch.extra{background:#eadcf6;border:1px solid #9672ba}
+.ic-simple-swatch.matched{background:#dff0d8;border:1px solid #598c66}
+.ic-simple-metrics{font-variant-numeric:tabular-nums;font-size:12px;font-weight:600;color:#213b35;white-space:nowrap}
+.ic-simple-metrics span{color:var(--muted,#728078);font-weight:500}
+.ic-simple-metrics strong{color:var(--forest,#173a31)}
+.ic-simple-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.ic-simple-table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums;min-width:780px;color:#213b35}
+.ic-simple-table th,.ic-simple-table td{padding:8px 6px;vertical-align:middle;line-height:1.4}
+.ic-simple-group-order{background:#f3f6ed;color:var(--forest,#173a31);text-align:center;font-size:12px;font-weight:700;letter-spacing:-.1px;border-bottom:1px solid var(--line,#e4e8df);border-right:1px solid #cfd8c9}
+.ic-simple-group-receive{background:#f8f9f4;color:var(--forest,#173a31);text-align:center;font-size:12px;font-weight:700;letter-spacing:-.1px;border-bottom:1px solid var(--line,#e4e8df);border-right:1px solid #cfd8c9}
+.ic-simple-head-sticky{background:#f8f9f4;color:var(--forest,#173a31);font-size:11.5px;font-weight:700;border-bottom:1px solid #cfd8c9}
+.ic-simple-subhead th{background:#fafbf7;color:var(--muted,#728078);font-size:10.5px;font-weight:600;border-bottom:1px solid #cfd8c9;border-right:1px solid #edf0e9;white-space:nowrap}
+.ic-simple-div-r{border-right:1px solid #cfd8c9!important}
+.ic-simple-cell-r{border-right:1px solid #edf0e9}
+.ic-simple-num{text-align:right;white-space:nowrap}
+.ic-simple-ctr{text-align:center}
+.ic-simple-row-qty{background:#fff4f1;border-bottom:1px solid #edf0e9}
+.ic-simple-row-price{background:#fdf8ec;border-bottom:1px solid #edf0e9}
+.ic-simple-row-detail{background:#f3f6fc;border-bottom:1px solid #edf0e9}
+.ic-simple-row-matched{background:#f6faf4;border-bottom:1px solid #edf0e9}
+.ic-simple-row-extra{background:#f8f4fc;border-bottom:1px solid #edf0e9}
+.ic-simple-cell-price{background:#fae7bc;color:#7a4c12;font-weight:700}
+.ic-simple-cell-detail{background:#dce7f8;color:#264673;font-weight:700}
+.ic-simple-cell-qty{background:#fcdcd4;color:#9b2c1c;font-weight:700}
+.ic-simple-status-select{width:100%;min-width:128px;min-height:34px;padding:5px 8px;border-radius:8px;border:1px solid #d8ded5;background:#fff;font-size:12px;font-weight:600;transition:border-color .15s,box-shadow .15s}
+.ic-simple-reason{font-size:11px;margin-top:3px;font-weight:500;line-height:1.35}
+.ic-simple-mark{display:inline-flex;border:1px solid #dbe1d7;border-radius:8px;overflow:hidden;background:#fff}
+.ic-simple-mark button{padding:5px 8px;min-height:32px;border:0;font-size:11.5px;font-weight:700;cursor:pointer;background:transparent;color:#4a5a52;transition:background .15s,color .15s;white-space:nowrap}
+.ic-simple-mark button[aria-pressed="true"].done{background:var(--green,#25765b);color:#fff}
+.ic-simple-mark button[aria-pressed="true"].follow{background:#9a662a;color:#fff}
+.ic-simple-mark button[aria-pressed="true"].follow-extra{background:#674188;color:#fff}
+.ic-simple-mark button:disabled{opacity:.65;cursor:default}
+.ic-simple-extra-band td{background:#f8f9f4;border-top:1px solid #cfd8c9;border-bottom:1px solid #e4e8df;font-size:12px}
+.ic-simple-extra-controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ic-simple-extra-controls select{flex:1 1 170px;min-height:34px;padding:5px 8px;border-radius:8px;border:1px solid #d8ded5;background:#fff;font-size:12px}
+.ic-simple-unmatch-btn{padding:5px 10px;min-height:34px;border-radius:8px;border:1px solid #cbb7e0;background:#fff;color:#674188;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.ic-simple-unmatch-btn.active{background:#674188;border-color:#674188;color:#fff}
+.ic-simple-step4{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:stretch;margin-bottom:18px}
+.ic-simple-card{display:flex;flex-direction:column}
+.ic-simple-card-body{padding:20px 22px;display:flex;flex-direction:column;gap:14px;flex:1}
+.ic-simple-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px}
+.ic-simple-meta-grid .h-field>input,.ic-simple-meta-grid .h-field>select{min-height:40px;padding:8px 10px;font-size:13px}
+.ic-simple-totals-box{background:#f8faf3;border:1px solid var(--line,#e4e8df);border-radius:9px;padding:12px 14px;font-size:12.5px;color:#213b35;font-variant-numeric:tabular-nums;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;line-height:1.5}
+.ic-simple-card-foot{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:6px}
+.ic-simple-credit-box{display:grid;gap:10px;padding-top:12px;border-top:1px solid #edf0e9}
+@media(max-width:960px){.ic-simple-step4{grid-template-columns:1fr}}
+@media(max-width:700px),(pointer:coarse){
+ .ic-simple-context-top,.ic-simple-shell-head,.ic-simple-card-body{padding:14px 16px}
+ .ic-simple-context-tools{padding:10px 16px 14px}
+ .ic-simple-status-select,.ic-simple-extra-controls select,.ic-simple-unmatch-btn{min-height:44px;font-size:14px}
+ .ic-simple-mark button{min-height:40px;padding:8px 12px;font-size:13px}
+ .ic-simple-metrics{white-space:normal}
+}
+
+

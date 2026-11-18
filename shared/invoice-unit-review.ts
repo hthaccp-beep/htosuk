@@ -1,8 +1,11 @@
 import type {InvoiceCase} from './invoice-case.ts';
-import {invoiceExtractionDraft,matchInvoiceExtraction} from './invoice-extraction.ts';
+import {invoiceExtractionDraft,matchInvoiceExtraction,type ExtractedInvoiceRow} from './invoice-extraction.ts';
 
 export interface InvoiceUnitReview {documentHash:string;page:number;row:number;lineId:string;quantity:number;unitPrice:number;unit:string;reason:string;by:string;at:string;manualProductMatch?:boolean}
+export interface InvoiceExtraReview {documentId:string;documentHash:string;page:number;row:number;source:string;decision:'LEAVE_UNMATCHED'|'SUPPLIER_ITEM';supplierProductId?:string;reason:string;by:string;at:string}
+const extraSourceIdentity=(r:ExtractedInvoiceRow)=>JSON.stringify([r.page,r.row,r.code,r.description,r.unit,r.quantity,r.unitPrice,r.netAmount]);
 export function currentUnitReviews(record:InvoiceCase){return record.extraction.unitReviews||[];}
+export function currentExtraReviews(record:InvoiceCase){return record.extraction.extraReviews||[];}
 export function hasConfirmedUnitReview(record:InvoiceCase,page:number,row:number):boolean {
  const saved=invoiceExtractionDraft(record);
  return !!saved&&record.documents.find(d=>d.id===saved.documentId)?.sha256===saved.documentHash&&currentUnitReviews(record).some(v=>{
@@ -10,13 +13,49 @@ export function hasConfirmedUnitReview(record:InvoiceCase,page:number,row:number
   return v.documentHash===saved.documentHash&&v.page===page&&v.row===row&&!!line&&line.invoiceQuantity===v.quantity&&line.invoicePrice===v.unitPrice&&line.unit===v.unit;
  });
 }
+export function hasConfirmedExtraReview(record:InvoiceCase,page:number,row:number):boolean {
+ const saved=invoiceExtractionDraft(record);
+ const doc=saved?record.documents.find(d=>d.id===saved.documentId):undefined;
+ const extractedRow=saved?.extracted.rows.find(r=>r.page===page&&r.row===row);
+ if(!saved||!doc||saved.documentHash!==doc.sha256||!extractedRow)return false;
+ return currentExtraReviews(record).some(v=>v.documentId===doc.id&&v.documentHash===doc.sha256&&v.page===page&&v.row===row&&v.source===extraSourceIdentity(extractedRow)&&v.reason.trim().length>=5&&!!v.by&&!!v.at);
+}
 export function invoiceUnitReviewProblems(record:InvoiceCase):string[]{
  const saved=invoiceExtractionDraft(record);if(!saved)return [];
  if(record.documents.find(d=>d.id===saved.documentId)?.sha256!==saved.documentHash)return ['The invoice reading no longer matches its original document.'];
  let draft;try{draft=matchInvoiceExtraction(record,saved.documentId,saved.extracted);}catch{return ['The invoice reading is invalid; review the original before approval.'];}
- const pending=draft.rows.filter(r=>r.unitReviewRequired&&!hasConfirmedUnitReview(record,r.source.page,r.source.row));
+ const pending=draft.rows.filter(r=>r.unitReviewRequired&&!hasConfirmedUnitReview(record,r.source.page,r.source.row)&&!(!r.lineId&&hasConfirmedExtraReview(record,r.source.page,r.source.row)));
  const blanks=draft.rows.filter(r=>r.blankReviewRequired).length;
  return [...(blanks?[`Review ${blanks} blank invoice row${blanks===1?'':'s'} against the original before approval.`]:[]),...(pending.length?[`Confirm units and price basis for ${pending.length} invoice row${pending.length===1?'':'s'} in the reading review.`]:[])];
+}
+/** Explicit Accounts decision on an extra/unmatched invoice row (leave unmatched or link supplier catalogue item). */
+export function confirmExtraInvoiceRow(record:InvoiceCase,input:any,by:string,at:string,restore=false):InvoiceCase {
+ const saved=invoiceExtractionDraft(record);
+ const document=saved?record.documents.find(d=>d.id===saved.documentId):undefined;
+ if(!saved||!document||saved.documentHash!==document.sha256)throw new Error('Read the current original document first.');
+ if(!record.receipt.submittedAt||record.status==='APPROVED'||record.claim||record.laterReceipts?.some(r=>r.status==='APPROVED'))throw new Error('The original invoice figures are locked.');
+ if(record.invoiceDocumentId&&record.invoiceDocumentId!==document.id)throw new Error('The reading belongs to a different invoice.');
+ const draft=matchInvoiceExtraction(record,saved.documentId,saved.extracted);
+ const row=draft.rows.find(r=>r.source.page===input.page&&r.source.row===input.row);
+ if(!row||row.lineId)throw new Error('Select an extra unmatched invoice row.');
+ const reason=typeof input.reason==='string'?input.reason.trim().slice(0,2000):'';
+ if(!restore&&reason.length<5)throw new Error('Record a clear reason for how the extra invoice item was handled.');
+ const decision=input.decision==='SUPPLIER_ITEM'?'SUPPLIER_ITEM':'LEAVE_UNMATCHED';
+ const remaining=currentExtraReviews(record).filter(r=>r.documentId!==document.id||r.page!==row.source.page||r.row!==row.source.row);
+ if(restore)return {...record,matchingVerified:false,totalsVerified:false,extraction:{...record.extraction,extraReviews:remaining}};
+ const next:InvoiceExtraReview={
+  documentId:document.id,
+  documentHash:document.sha256,
+  page:row.source.page,
+  row:row.source.row,
+  source:extraSourceIdentity(row.source),
+  decision,
+  ...(decision==='SUPPLIER_ITEM'&&typeof input.supplierProductId==='string'&&input.supplierProductId.trim()?{supplierProductId:input.supplierProductId.trim().slice(0,120)}:{}),
+  reason,
+  by,
+  at,
+ };
+ return {...record,matchingVerified:false,totalsVerified:false,extraction:{...record.extraction,extraReviews:[...remaining,next]}};
 }
 /** Explicit Accounts decision with printed amount reconciliation, not an AI conversion or price approval. */
 export function confirmInvoiceRowUnits(record:InvoiceCase,input:any,by:string,at:string):InvoiceCase {

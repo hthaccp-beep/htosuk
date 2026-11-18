@@ -18,3 +18,6 @@ process_*_csv.js
 private/
 private-before/
 dist-menu/
+.aistudio/
+.playwright-cli/
+public/assets/aistudio/

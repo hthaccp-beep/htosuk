@@ -1,5 +1,5 @@
 import {reviewBlankInvoiceRow} from '../shared/invoice-blank-review.ts';
-import {confirmInvoiceRowUnits,invoiceUnitReviewProblems} from '../shared/invoice-unit-review.ts';
+import {confirmExtraInvoiceRow,confirmInvoiceRowUnits,invoiceUnitReviewProblems} from '../shared/invoice-unit-review.ts';
 import {useInvoiceExtractionFigures} from '../shared/invoice-extraction.ts';
 import {canReviewInvoices,invoiceScope,lineDiscrepancy,invoiceApprovalProblems,outstandingClaim,type InvoiceCase,type ReceiptReport,type InvoiceCaseLine,type CreditNote} from '../shared/invoice-case.ts';
 import {checkUserActionPermission} from './order-authorization.ts';
@@ -65,6 +65,10 @@ export function applyInvoiceCommand(current:InvoiceCase,command:CaseCommand,user
   Object.assign(r,reviewBlankInvoiceRow(r,c,by,at,c.kind==='restore-blank-row'));detail=`Accounts ${c.kind==='restore-blank-row'?'reopened':'confirmed blank — not charged'} page ${c.page}, row ${c.row}: ${String(c.reason).trim()}`;
  }else if(c.kind==='confirm-reading-units'){
   Object.assign(r,confirmInvoiceRowUnits(r,c,by,at));detail='Accounts confirmed a document row in ordered units: '+String(c.reason).trim();
+ }else if(c.kind==='confirm-extra-row'||c.kind==='restore-extra-row'){
+  const revert=c.kind==='restore-extra-row';
+  Object.assign(r,confirmExtraInvoiceRow(r,c,by,at,revert));
+  detail=`Accounts ${revert?'reopened':'resolved'} extra row page ${c.page}, row ${c.row}${c.decision==='SUPPLIER_ITEM'?' (matched supplier item)':' (left unmatched)'}: ${String(c.reason||'').trim()}`;
  }else if(c.kind==='save-review'){
   if(!r.receipt.submittedAt)fail('The staff delivery report has not been submitted.');
   if(r.laterReceipts?.some(v=>v.status==='APPROVED')){

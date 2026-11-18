@@ -1,0 +1,1009 @@
+import React,{useEffect,useMemo,useState} from 'react';
+import {buildSimpleInvoiceTable,computeTableTotalsCheck,type SimpleIssueTheme,type SimpleOrderedRow,type SimpleTableMark} from '../../shared/simple-invoice-table';
+import {caseStatusLabels,invoiceApprovalProblems,outstandingClaim,receiptStatusLabels,type InvoiceCase} from '../../shared/invoice-case';
+import {invoiceExtractionDraft} from '../../shared/invoice-extraction';
+import {invoiceRecordStatus} from '../../shared/invoice-review-status';
+import {canReportLaterDelivery} from '../../shared/later-delivery';
+import {useAppStore} from '../../store';
+import {CaseDocuments,DocumentUpload,InvoiceField as Field,useInvoiceCase,useInvoiceDraftGuard} from './InvoiceCaseCommon';
+import {InvoiceClaimEmail} from './InvoiceClaimEmail';
+import {InvoiceReadingPanel} from './InvoiceReadingPanel';
+import {useInvoiceUploadPending} from './InvoiceUploadPreview';
+import {LaterDeliveries} from './LaterDeliveries';
+import {Button,Heading,Tag,day,money} from './ui';
+import './invoice-cases.css';
+
+interface RowEdit {
+ status?:string;
+ mark?:SimpleTableMark;
+ invoiceQty?:string;
+ invoicePrice?:string;
+}
+
+const SAMPLE_CREDIT_PNG='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+const toPounds=(pence?:number)=>pence==null?'':(pence/100).toFixed(2);
+const parsePence=(raw:string):number|undefined=>{
+ const trimmed=raw.trim();
+ if(!trimmed)return undefined;
+ const n=Number(trimmed);
+ if(!Number.isFinite(n))return undefined;
+ return Math.round(n*100);
+};
+const parseOptNum=(raw:string|undefined):number|undefined=>{
+ if(raw==null||raw.trim()==='')return undefined;
+ const n=Number(raw);
+ return Number.isFinite(n)&&n>=0?n:undefined;
+};
+
+function rowVisual(r:SimpleOrderedRow & {status:string;mark:SimpleTableMark}){
+ if(r.mark==='DONE'&&(r.status==='Matched'||r.status==='AI matched (confirm)'||(!r.qtyDiffers&&!r.priceDiffers&&!r.codeDiffers&&!r.nameDiffers))){
+  return {rowClass:'ic-simple-row-matched',statusColor:'#286246'};
+ }
+ if(r.status.startsWith('Damage')||r.status.startsWith('Missing')||r.status==='Out of stock'||r.status==='Incorrect'){
+  return {rowClass:'ic-simple-row-qty',statusColor:'#a23b28'};
+ }
+ if(r.status==='Price')return {rowClass:'ic-simple-row-price',statusColor:'#9a662a'};
+ if(r.status==='ID / Name'||r.status==='Pack / Unit')return {rowClass:'ic-simple-row-detail',statusColor:'#264673'};
+ const themeMap:Record<SimpleIssueTheme,{rowClass:string;statusColor:string}>={
+  qty:{rowClass:'ic-simple-row-qty',statusColor:'#a23b28'},
+  price:{rowClass:'ic-simple-row-price',statusColor:'#9a662a'},
+  detail:{rowClass:'ic-simple-row-detail',statusColor:'#264673'},
+  matched:{rowClass:'ic-simple-row-matched',statusColor:'#286246'},
+ };
+ return themeMap[r.issueTheme];
+}
+
+export function SimpleInvoiceTableWorkspace({
+ caseId,
+ onClose,
+ onOpenClassic,
+ preview=false,
+}:{
+ caseId:string;
+ onClose:()=>void;
+ onOpenClassic:()=>void;
+ preview?:boolean;
+}){
+ const products=useAppStore(s=>s.products);
+ const {record,setRecord,error:caseError,busy,command,run}=useInvoiceCase(caseId);
+ const {uploadPending,uploadBusy,onUploadPending}=useInvoiceUploadPending();
+
+ const [edits,setEdits]=useState<Record<string,RowEdit>>({});
+ const [editFigures,setEditFigures]=useState(false);
+ const [invoiceRef,setInvoiceRef]=useState('');
+ const [invoiceDate,setInvoiceDate]=useState('');
+ const [invoiceDocId,setInvoiceDocId]=useState('');
+ const [netInput,setNetInput]=useState('');
+ const [vatInput,setVatInput]=useState('0.00');
+ const [grossInput,setGrossInput]=useState('');
+ const [adjInput,setAdjInput]=useState('0.00');
+ const [matchingVerified,setMatchingVerified]=useState(false);
+ const [totalsVerified,setTotalsVerified]=useState(false);
+ const [notes,setNotes]=useState('');
+ const [dirty,setDirty]=useState(false);
+ const [readingDirty,setReadingDirty]=useState(false);
+ const [notice,setNotice]=useState('');
+ const [localError,setLocalError]=useState('');
+
+ const [hold,setHold]=useState(false);
+ const [holdReason,setHoldReason]=useState('');
+ const [holdOwner,setHoldOwner]=useState('');
+ const [holdUntil,setHoldUntil]=useState('');
+ const [resumeOpen,setResumeOpen]=useState(false);
+ const [resumeReason,setResumeReason]=useState('');
+
+ const [recipient,setRecipient]=useState('');
+ const [message,setMessage]=useState('');
+ const [emailDirty,setEmailDirty]=useState(false);
+
+ const [creditRef,setCreditRef]=useState('');
+ const [creditDoc,setCreditDoc]=useState('');
+ const [creditInvoice,setCreditInvoice]=useState('');
+ const [creditNetInput,setCreditNetInput]=useState('');
+ const [creditVatInput,setCreditVatInput]=useState('0.00');
+ const [creditGrossInput,setCreditGrossInput]=useState('');
+ const [creditVerified,setCreditVerified]=useState(false);
+ const [creditDirty,setCreditDirty]=useState(false);
+
+ const hasUnsaved=uploadPending||readingDirty||dirty||creditDirty||emailDirty||!!resumeReason||(hold&&!!(holdReason||holdOwner));
+ useInvoiceDraftGuard(hasUnsaved,busy||uploadBusy);
+
+ const syncFromRecord=(rec:InvoiceCase,clearEdits=false)=>{
+  const ext=invoiceExtractionDraft(rec)?.extracted;
+  const firstInvoice=rec.documents.find(d=>d.kind==='INVOICE')?.id||'';
+  setInvoiceRef(rec.invoiceReference||ext?.reference||'');
+  setInvoiceDate(rec.invoiceDate||ext?.date||'');
+  setInvoiceDocId(rec.invoiceDocumentId||firstInvoice);
+  const netP=rec.invoiceNetPence??(ext?.net!=null?Math.round(ext.net*100):undefined);
+  const vatP=rec.invoiceVatPence??(ext?.vat!=null?Math.round(ext.vat*100):0);
+  const grossP=rec.invoiceGrossPence??(ext?.gross!=null?Math.round(ext.gross*100):undefined);
+  const adjP=rec.adjustmentPence??(ext?.adjustment!=null?Math.round(ext.adjustment*100):0);
+  setNetInput(toPounds(netP));
+  setVatInput(toPounds(vatP));
+  setGrossInput(toPounds(grossP));
+  setAdjInput(toPounds(adjP));
+  setMatchingVerified(rec.matchingVerified);
+  setTotalsVerified(rec.totalsVerified);
+  setNotes(rec.notes||'');
+  setRecipient(rec.claim?.recipient||'');
+  setMessage(rec.claim?.message||'');
+  const remPence=outstandingClaim(rec);
+  const defaultCredRef=rec.invoiceReference?`CR-${rec.invoiceReference}`:'';
+  setCreditRef(defaultCredRef);
+  setCreditInvoice(rec.invoiceReference||'');
+  setCreditDoc(rec.documents.find(d=>d.kind==='CREDIT')?.id||'');
+  setCreditNetInput(remPence>0?(remPence/100).toFixed(2):'');
+  setCreditVatInput('0.00');
+  setCreditGrossInput(remPence>0?(remPence/100).toFixed(2):'');
+  setCreditVerified(false);
+  setCreditDirty(false);
+  setDirty(false);
+  if(clearEdits)setEdits({});
+ };
+
+ const syncedVersion=record?.id+':'+record?.version;
+ useEffect(()=>{
+  if(record)syncFromRecord(record,false);
+  // Only re-sync form fields when the loaded record or version changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[syncedVersion]);
+
+ const model=useMemo(()=>record?buildSimpleInvoiceTable(record,products):null,[record,products]);
+
+ const effectiveOrdered=useMemo(()=>{
+  if(!model)return [];
+  return model.ordered.map(r=>{
+   const ed=edits[r.id]||{};
+   const invQty=parseOptNum(ed.invoiceQty);
+   const invPrice=parseOptNum(ed.invoicePrice);
+   return {
+    ...r,
+    receiveBilledQty:invQty??r.receiveBilledQty,
+    receivePrice:invPrice??r.receivePrice,
+    status:ed.status??r.statusLabel,
+    mark:ed.mark??r.defaultMark,
+    editedQty:ed.invoiceQty,
+    editedPrice:ed.invoicePrice,
+   };
+  });
+ },[model,edits]);
+
+ const effectiveUnmatched=useMemo(()=>{
+  if(!model)return [];
+  return model.unmatched.map(u=>{
+   const ed=edits[u.id]||{};
+   const selectedProductId=u.savedDecision==='SUPPLIER_ITEM'?(u.savedProductId||''):'';
+   const matchedOpt=selectedProductId?model.supplierOptions.find(o=>o.id===selectedProductId):undefined;
+   const leaveUnmatched=u.savedDecision==='LEAVE_UNMATCHED';
+   const mark:SimpleTableMark=ed.mark??u.defaultMark;
+   const status=matchedOpt?`Matched: ${matchedOpt.name}`:u.statusLabel;
+   return {...u,matchedOpt,leaveUnmatched,selectedProductId,mark,status};
+  });
+ },[model,edits]);
+
+ const netPence=parsePence(netInput);
+ const vatPence=parsePence(vatInput);
+ const grossPence=parsePence(grossInput);
+ const adjustmentPence=parsePence(adjInput)??0;
+
+ const totalsCheck=useMemo(
+  ()=>computeTableTotalsCheck(effectiveOrdered,effectiveUnmatched,{netPence,vatPence,grossPence,adjustmentPence}),
+  [effectiveOrdered,effectiveUnmatched,netPence,vatPence,grossPence,adjustmentPence],
+ );
+
+ if(!record||!model){
+  return <>
+   <Button variant="secondary" onClick={onClose}>Back to invoice inbox</Button>
+   <p role={caseError?'alert':'status'}>{caseError||'Opening invoice review…'}</p>
+  </>;
+ }
+
+ const statusInfo=invoiceRecordStatus(record);
+ const locked=record.status==='APPROVED'||(!!record.claim&&['SENT','SENDING','UNCERTAIN'].includes(record.claim.state));
+ const claim=record.claim;
+ const hasDraft=Boolean(invoiceExtractionDraft(record));
+
+ const followCount=effectiveOrdered.filter(r=>r.mark==='FOLLOW').length+effectiveUnmatched.filter(u=>u.mark==='FOLLOW').length;
+ const doneCount=effectiveOrdered.filter(r=>r.mark==='DONE').length+effectiveUnmatched.filter(u=>u.mark==='DONE').length;
+ const claimableRows=effectiveOrdered.filter(r=>r.mark==='FOLLOW'&&r.creditEstimatePence>0);
+ const noteOnlyFollowRows=effectiveOrdered.filter(r=>r.mark==='FOLLOW'&&r.creditEstimatePence===0);
+ const estimatedFollowPence=claimableRows.reduce((s,r)=>s+r.creditEstimatePence,0);
+ const approvalProblems=invoiceApprovalProblems(record);
+
+ const act=async(kind:string,payload:any={})=>{
+  if(uploadPending){
+   setNotice('Upload or cancel the selected file before continuing.');
+   return null;
+  }
+  setLocalError('');
+  const result=await command(kind,payload);
+  if(result?.record){
+   syncFromRecord(result.record,kind==='use-extraction');
+   setNotice('Saved — '+caseStatusLabels[result.record.status as keyof typeof caseStatusLabels]);
+   return result;
+  }
+  return null;
+ };
+
+ const buildSavePayload=(current:InvoiceCase)=>{
+  const docId=invoiceDocId||current.invoiceDocumentId||current.documents.find(d=>d.kind==='INVOICE')?.id||'';
+  if(!docId)throw new Error('Choose the original invoice document before saving.');
+  if(!invoiceRef.trim())throw new Error('Enter the supplier invoice reference.');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(invoiceDate.trim()))throw new Error('Enter a valid invoice date (YYYY-MM-DD).');
+  if(netPence==null||vatPence==null||grossPence==null)throw new Error('Enter Invoice Net, VAT and Gross amounts.');
+
+  const linesPayload=current.lines.map(orig=>{
+   const row=effectiveOrdered.find(r=>r.lineId===orig.id);
+   const billedQty=row?.receiveBilledQty??row?.receiveQty??orig.ordered;
+   const billedPrice=row?.receivePrice??orig.expectedPrice;
+   const mark=row?.mark??'FOLLOW';
+   const claimable=mark==='FOLLOW'&&(row?.creditEstimatePence??0)>0;
+   const resolution=mark==='DONE'?'ACCEPT':row?.status==='Hold'?'HOLD':claimable?'CLAIM':'ACCEPT';
+   const reasonText=(
+    row?.mismatchReasons.join('; ')||
+    (mark==='FOLLOW'&&!claimable?`${row?.status||'Detail check'} (£0 financial claim)`:row?.status)||
+    orig.reason||
+    'Checked in invoice table'
+   ).trim();
+   return {
+    id:orig.id,
+    invoiceQuantity:billedQty,
+    invoicePrice:billedPrice,
+    reviewed:true,
+    resolution,
+    reason:reasonText,
+   };
+  });
+
+  const nonFinancialNotes=noteOnlyFollowRows.length
+   ?`Detail checks (£0 claim): ${noteOnlyFollowRows.map(r=>`${r.orderProductName} (${r.status})`).join('; ')}`
+   :'';
+  const combinedNotes=notes.trim()||(nonFinancialNotes?nonFinancialNotes:'');
+
+  return {
+   lines:linesPayload,
+   invoiceReference:invoiceRef.trim(),
+   invoiceDate:invoiceDate.trim(),
+   invoiceDocumentId:docId,
+   invoiceNetPence:netPence,
+   invoiceVatPence:vatPence,
+   invoiceGrossPence:grossPence,
+   adjustmentPence,
+   matchingVerified,
+   totalsVerified,
+   notes:combinedNotes,
+  };
+ };
+
+ const handleSaveReview=async()=>{
+  setLocalError('');
+  if(uploadPending){
+   setNotice('Upload or cancel the selected file before continuing.');
+   return;
+  }
+  try{
+   const payload=buildSavePayload(record);
+   const result=await command('save-review',payload);
+   if(result?.record){
+    syncFromRecord(result.record,false);
+    setNotice(`Review saved for ${result.record.invoiceReference} (${doneCount} Done · ${followCount} Follow).`);
+   }
+  }catch(e:any){
+   setLocalError(e?.message||'Could not save review.');
+  }
+ };
+
+ const handlePrepareAndApproveClaim=async()=>{
+  setLocalError('');
+  if(uploadPending){
+   setNotice('Upload or cancel the selected file before continuing.');
+   return;
+  }
+  try{
+   if(!matchingVerified||!totalsVerified){
+    throw new Error('Tick both verification check boxes (Products/units checked and Totals agree) before preparing a claim.');
+   }
+   if(effectiveUnmatched.some(u=>!u.savedDecision)){
+    throw new Error('Confirm each extra item at the bottom of the table (Match supplier item or Leave unmatched) first.');
+   }
+   if(claimableRows.length===0){
+    throw new Error('Mark at least one item with a price, missing or damage difference as Follow before preparing a credit claim.');
+   }
+
+   let latest=record;
+   let expectedVer=record.version;
+   if(dirty||!latest.claim||latest.totalsVerified!==totalsVerified||latest.matchingVerified!==matchingVerified){
+    const saved=await run({
+     action:'invoice-case-command',
+     command:{...buildSavePayload(latest),kind:'save-review',expectedVersion:expectedVer,requestId:crypto.randomUUID()},
+    });
+    if(!saved?.record)return;
+    latest=saved.record;
+    expectedVer=latest.version;
+   }
+   if(!latest.claim){
+    const prep=await run({
+     action:'invoice-case-command',
+     command:{kind:'prepare-claim',expectedVersion:expectedVer,requestId:crypto.randomUUID()},
+    });
+    if(!prep?.record)return;
+    latest=prep.record;
+    expectedVer=latest.version;
+   }
+   if(latest.claim?.state==='DRAFT'){
+    const appr=await run({
+     action:'invoice-case-command',
+     command:{kind:'approve-claim',expectedVersion:expectedVer,requestId:crypto.randomUUID()},
+    });
+    if(!appr?.record)return;
+    latest=appr.record;
+   }
+   syncFromRecord(latest,false);
+   const claimTotal=(latest.claim?.lines.reduce((s,l)=>s+l.netPence,0)??0)/100;
+   setNotice(`Claim prepared & approved (${money(claimTotal)} net). Review supplier email below.`);
+  }catch(e:any){
+   setLocalError(e?.message||'Could not prepare credit claim.');
+  }
+ };
+
+ const handleConfirmExtraRow=async(u:typeof effectiveUnmatched[number],decision:'SUPPLIER_ITEM'|'LEAVE_UNMATCHED'|'RESET',supplierProductId?:string)=>{
+  setLocalError('');
+  if(decision==='RESET'){
+   await act('restore-extra-row',{page:u.page,row:u.row,reason:'Reopened extra item matching in invoice table'});
+   return;
+  }
+  const opt=supplierProductId?model.supplierOptions.find(o=>o.id===supplierProductId):undefined;
+  const reason=decision==='SUPPLIER_ITEM'
+   ?`Matched extra item "${u.receiveProductName}" to supplier item ${opt?.name||supplierProductId}`
+   :`Confirmed extra item "${u.receiveProductName}" is not on the order — leave unmatched`;
+  await act('confirm-extra-row',{
+   page:u.page,
+   row:u.row,
+   decision,
+   ...(supplierProductId?{supplierProductId}:{}),
+   reason,
+  });
+ };
+
+ const handleRecordCredit=async()=>{
+  if(!claim||claim.state!=='SENT')return;
+  setLocalError('');
+  try{
+   const cNet=parsePence(creditNetInput);
+   const cVat=parsePence(creditVatInput)??0;
+   const cGross=parsePence(creditGrossInput);
+   if(!creditRef.trim())throw new Error('Enter the supplier credit note reference.');
+   if(cNet==null||cNet<=0)throw new Error('Enter a positive credit net amount.');
+   if(cGross==null||cNet+cVat!==cGross)throw new Error('Credit Net + VAT must equal Credit Gross.');
+   if(!creditVerified)throw new Error('Tick the box confirming credit details match the supplier credit note.');
+
+   let latest=record;
+   let expectedVer=record.version;
+   let docId=creditDoc||record.documents.find(d=>d.kind==='CREDIT')?.id||'';
+   if(!docId&&preview){
+    const up=await run({
+     action:'invoice-case-upload',
+     expectedVersion:expectedVer,
+     kind:'CREDIT',
+     name:`SAMPLE-${creditRef.trim()}.png`,
+     mime:'image/png',
+     base64:SAMPLE_CREDIT_PNG,
+    });
+    if(!up?.record)return;
+    latest=up.record;
+    expectedVer=latest.version;
+    docId=up.documentId;
+   }
+   if(!docId)throw new Error('Upload or select the original credit note first.');
+
+   let remaining=cNet;
+   const allocLines:{lineId:string;netPence:number}[]=[];
+   for(const cl of latest.claim!.lines){
+    if(remaining<=0)break;
+    const open=Math.max(0,cl.netPence-cl.creditedPence-cl.replacementPence);
+    if(open<=0)continue;
+    const take=Math.min(open,remaining);
+    allocLines.push({lineId:cl.lineId,netPence:take});
+    remaining-=take;
+   }
+   if(remaining>0||allocLines.length===0){
+    throw new Error('Credit net amount exceeds the open claim balance.');
+   }
+
+   const recRes=await run({
+    action:'invoice-case-command',
+    command:{
+     kind:'record-credit',
+     requestId:crypto.randomUUID(),
+     expectedVersion:expectedVer,
+     reference:creditRef.trim(),
+     invoiceReference:creditInvoice.trim()||latest.invoiceReference,
+     supplierId:latest.supplierId,
+     documentId:docId,
+     lines:allocLines,
+     vatPence:cVat,
+     grossPence:cGross,
+     verified:true,
+    },
+   });
+   if(!recRes?.record)return;
+   const recorded=recRes.record as InvoiceCase;
+   const draftCredit=recorded.credits.find(c=>c.status==='DRAFT');
+   if(draftCredit){
+    const appRes=await run({
+     action:'invoice-case-command',
+     command:{kind:'approve-credit',requestId:crypto.randomUUID(),expectedVersion:recorded.version,creditId:draftCredit.id},
+    });
+    if(appRes?.record){
+     syncFromRecord(appRes.record,false);
+     setNotice(`Credit note ${creditRef.trim()} approved (${money(cGross/100)} gross).`);
+     return;
+    }
+   }
+   syncFromRecord(recorded,false);
+   setNotice(`Credit note ${creditRef.trim()} recorded.`);
+  }catch(e:any){
+   setLocalError(e?.message||'Could not record credit note.');
+  }
+ };
+
+ const handleApproveInvoice=async()=>{
+  setLocalError('');
+  if(uploadPending){
+   setNotice('Upload or cancel the selected file before continuing.');
+   return;
+  }
+  try{
+   let expectedVer=record.version;
+   if(!locked&&dirty){
+    const saved=await run({
+     action:'invoice-case-command',
+     command:{...buildSavePayload(record),kind:'save-review',expectedVersion:expectedVer,requestId:crypto.randomUUID()},
+    });
+    if(!saved?.record)return;
+    expectedVer=saved.record.version;
+   }
+   const appRes=await run({
+    action:'invoice-case-command',
+    command:{kind:'approve-invoice',expectedVersion:expectedVer,requestId:crypto.randomUUID()},
+   });
+   if(appRes?.record){
+    syncFromRecord(appRes.record,false);
+    setNotice(`Invoice ${appRes.record.invoiceReference||appRes.record.id} approved and locked.`);
+   }
+  }catch(e:any){
+   setLocalError(e?.message||'Could not approve invoice yet.');
+  }
+ };
+
+ const closeWorkspace=()=>{
+  if(!busy&&!uploadBusy&&(!hasUnsaved||window.confirm('Discard unsaved Accounts changes?')))onClose();
+ };
+ const switchToClassic=()=>{
+  if(!busy&&!uploadBusy&&(!hasUnsaved||window.confirm('Switch to classic check view? Unsaved simple-table edits will be discarded.')))onOpenClassic();
+ };
+
+ const alertMessage=localError||caseError;
+
+ return <div className="ic-accounts">
+  <div className="ic-toolbar">
+   <Button variant="secondary" onClick={closeWorkspace}>← Invoice inbox</Button>
+   <Tag tone={statusInfo.tone}>{statusInfo.label}</Tag>
+   <Button variant="quiet" onClick={switchToClassic}>Classic check view</Button>
+  </div>
+
+  <Heading eyebrow="ACCOUNTS REVIEW" title={record.invoiceReference||'Check invoice'}>
+   {record.branchName} · {record.supplierName}
+  </Heading>
+
+  <section className="h-panel ic-simple-context" aria-label="Delivery report and invoice documents">
+   <div className="ic-simple-context-top">
+    <div className="ic-simple-context-main">
+     <div className="ic-simple-report-line">
+      <strong>Staff report:</strong>{' '}
+      {record.receipt.statuses.length?record.receipt.statuses.map(s=>receiptStatusLabels[s]).join(' · '):'Delivery report pending'}
+      {record.receipt.notes&&<span> — {record.receipt.notes}</span>}
+     </div>
+     <div className="ic-simple-subnote">
+      Compare Order vs Receive side by side · Mark each row Done or Follow · Confirm totals &amp; credit follow-up below.
+     </div>
+     <CaseDocuments record={record}/>
+    </div>
+    <div className="ic-simple-context-actions">
+     <label className="ic-simple-toggle-label">
+      <input type="checkbox" checked={editFigures} disabled={locked} onChange={e=>setEditFigures(e.target.checked)}/>
+      Edit billed figures
+     </label>
+     {hasDraft&&!locked&&<Button variant="secondary" busy={busy} disabled={hasUnsaved} onClick={()=>void act('use-extraction')}>Use AI draft figures</Button>}
+    </div>
+   </div>
+
+   <div className="ic-simple-context-tools">
+    {!locked&&!claim&&(
+     <details>
+      <summary>Add another invoice or delivery scan</summary>
+      <div style={{paddingTop:6}}>
+       <DocumentUpload compact onPendingChange={onUploadPending} record={record} run={run} kind="INVOICE" label="Add a later invoice"/>
+      </div>
+     </details>
+    )}
+    <details>
+     <summary>AI document reading &amp; photo preparation{hasDraft?' (draft ready)':''}</summary>
+     <div style={{paddingTop:6}}>
+      <InvoiceReadingPanel
+       onDirty={setReadingDirty}
+       record={record}
+       busy={busy}
+       dirty={uploadPending||dirty||creditDirty||emailDirty}
+       locked={locked}
+       preview={preview}
+       run={run}
+       act={act}
+       onChanged={next=>{setRecord(next);syncFromRecord(next,true);setNotice('Reading saved as a draft — review highlighted rows in the table.');}}
+      />
+     </div>
+    </details>
+   </div>
+  </section>
+
+  {alertMessage&&<p role="alert" className="h-notice error">{alertMessage}</p>}
+  {notice&&<p role="status" className="h-notice success">{notice}</p>}
+
+  <section className="h-panel ic-simple-shell" aria-label="Order vs Receive invoice check table">
+   <div className="ic-simple-shell-head">
+    <div className="ic-simple-shell-title">
+     <h2>Order vs Receive comparison</h2>
+     <div className="ic-simple-key">
+      <span className="ic-simple-key-item"><span aria-hidden="true" className="ic-simple-swatch price"/>Price differs</span>
+      <span className="ic-simple-key-item"><span aria-hidden="true" className="ic-simple-swatch detail"/>ID / Name / Unit differs</span>
+      <span className="ic-simple-key-item"><span aria-hidden="true" className="ic-simple-swatch qty"/>Missing / Damage</span>
+      <span className="ic-simple-key-item"><span aria-hidden="true" className="ic-simple-swatch extra"/>Extra item</span>
+      <span className="ic-simple-key-item"><span aria-hidden="true" className="ic-simple-swatch matched"/>Matched / Done</span>
+     </div>
+    </div>
+    <div className="ic-simple-metrics">
+     {doneCount} Done <span>·</span> {followCount} Follow <span>·</span> {effectiveUnmatched.length} Unmatched <span>·</span> Est. claim <strong>{money(estimatedFollowPence/100)}</strong>
+    </div>
+   </div>
+
+   <div className="ic-simple-table-wrap">
+    <table className="ic-simple-table">
+     <thead>
+      <tr>
+       <th colSpan={5} className="ic-simple-group-order">Order (Saved HTOS order)</th>
+       <th colSpan={5} className="ic-simple-group-receive">Receive (Delivery &amp; Supplier invoice)</th>
+       <th rowSpan={2} className="ic-simple-head-sticky ic-simple-cell-r" style={{textAlign:'left',minWidth:132}}>Status</th>
+       <th rowSpan={2} className="ic-simple-head-sticky ic-simple-ctr" style={{minWidth:102}}>Mark</th>
+      </tr>
+      <tr className="ic-simple-subhead">
+       <th className="ic-simple-ctr" style={{width:28}}>No</th>
+       <th style={{textAlign:'left',width:58}}>ID</th>
+       <th style={{textAlign:'left',minWidth:108}}>Product</th>
+       <th className="ic-simple-num" style={{width:58}}>Price</th>
+       <th className="ic-simple-num ic-simple-div-r" style={{width:68}}>Qty</th>
+       <th className="ic-simple-ctr" style={{width:28}}>No</th>
+       <th style={{textAlign:'left',width:58}}>ID</th>
+       <th style={{textAlign:'left',minWidth:112}}>Product</th>
+       <th className="ic-simple-num" style={{width:62}}>Price</th>
+       <th className="ic-simple-num ic-simple-div-r" style={{width:78}}>Qty</th>
+      </tr>
+     </thead>
+     <tbody>
+      {effectiveOrdered.map(r=>{
+       const {rowClass,statusColor}=rowVisual(r);
+       const billedDiff=r.receiveBilledQty!=null&&r.receiveQty!=null&&r.receiveBilledQty!==r.receiveQty;
+       const priceCellClass=r.priceDiffers?'ic-simple-cell-price':'';
+       const idCellClass=r.codeDiffers?'ic-simple-cell-detail':'';
+       const nameCellClass=r.nameDiffers?'ic-simple-cell-detail':'';
+       const qtyCellClass=r.qtyDiffers?'ic-simple-cell-qty':r.unitCheckRequired?'ic-simple-cell-detail':'';
+
+       return <tr key={r.id} className={rowClass}>
+        <td className="ic-simple-ctr ic-simple-cell-r" style={{color:'var(--muted,#728078)'}}>{r.orderNo}</td>
+        <td className="ic-simple-cell-r" style={{fontWeight:600}}>{r.orderProductId}</td>
+        <td className="ic-simple-cell-r"><strong>{r.orderProductName}</strong></td>
+        <td className="ic-simple-num ic-simple-cell-r">{money(r.orderPrice)}</td>
+        <td className="ic-simple-num ic-simple-div-r">{r.orderQty} {r.orderUnit}</td>
+
+        <td className="ic-simple-ctr ic-simple-cell-r" style={{color:'var(--muted,#728078)'}}>{r.receiveNo}</td>
+        <td className={`ic-simple-cell-r ${idCellClass}`}>{r.receiveProductId}</td>
+        <td className={`ic-simple-cell-r ${nameCellClass}`}>{r.receiveProductName}</td>
+        <td className={`ic-simple-num ic-simple-cell-r ${priceCellClass}`}>
+         {editFigures&&!locked?(
+          <input
+           aria-label={`Invoice unit price for ${r.orderProductName}`}
+           type="number"
+           min="0"
+           step="0.01"
+           value={r.editedPrice??(r.receivePrice!=null?String(r.receivePrice):'')}
+           onChange={e=>{setDirty(true);setEdits(prev=>({...prev,[r.id]:{...prev[r.id],invoicePrice:e.target.value}}));}}
+           style={{width:66,minHeight:32,padding:'4px 6px',textAlign:'right',fontSize:12}}
+          />
+         ):money(r.receivePrice)}
+        </td>
+        <td className={`ic-simple-num ic-simple-div-r ${qtyCellClass}`}>
+         {editFigures&&!locked?(
+          <div style={{display:'grid',gap:2,justifyItems:'end'}}>
+           <input
+            aria-label={`Invoice billed quantity for ${r.orderProductName}`}
+            type="number"
+            min="0"
+            step="1"
+            value={r.editedQty??(r.receiveBilledQty!=null?String(r.receiveBilledQty):'')}
+            onChange={e=>{setDirty(true);setEdits(prev=>({...prev,[r.id]:{...prev[r.id],invoiceQty:e.target.value}}));}}
+            style={{width:62,minHeight:32,padding:'4px 6px',textAlign:'right',fontSize:12}}
+           />
+           <small>Deliv: {r.receiveQty??'—'}</small>
+          </div>
+         ):(
+          <>
+           <div>{r.receiveQty!=null?`${r.receiveQty} ${r.orderUnit}`:(r.receiveBilledQty!=null?`${r.receiveBilledQty} ${r.receiveUnit}`:'—')}</div>
+           {billedDiff&&<div style={{fontSize:11,color:'var(--muted,#728078)',fontWeight:500}}>Inv: {r.receiveBilledQty} {r.receiveUnit}</div>}
+          </>
+         )}
+        </td>
+
+        <td className="ic-simple-cell-r">
+         <select
+          className="ic-simple-status-select"
+          aria-label={`Status for ${r.orderProductName}`}
+          disabled={locked}
+          value={r.status}
+          onChange={e=>{
+           setDirty(true);
+           const val=e.target.value;
+           setEdits(prev=>({...prev,[r.id]:{...prev[r.id],status:val,mark:(val==='Matched'||val==='AI matched (confirm)')?'DONE':'FOLLOW'}}));
+          }}
+          style={{color:statusColor}}>
+          {![r.status,'Matched','AI matched (confirm)','Damage','Missing','Price','ID / Name','Out of stock','Hold'].includes(r.status)&&<option value={r.status}>{r.status}</option>}
+          {Array.from(new Set([r.statusLabel,'Matched','AI matched (confirm)','Damage','Missing','Price','ID / Name','Out of stock','Hold'])).map(opt=><option key={opt} value={opt}>{opt}</option>)}
+         </select>
+         {r.mismatchReasons.length>0&&<div className="ic-simple-reason" style={{color:statusColor}}>{r.mismatchReasons.join(' · ')}</div>}
+        </td>
+
+        <td className="ic-simple-ctr">
+         <div className="ic-simple-mark">
+          {(['DONE','FOLLOW'] as const).map(choice=>(
+           <button
+            key={choice}
+            type="button"
+            className={choice==='DONE'?'done':'follow'}
+            disabled={locked}
+            aria-pressed={r.mark===choice}
+            onClick={()=>{setDirty(true);setEdits(prev=>({...prev,[r.id]:{...prev[r.id],mark:choice}}));}}>
+            {choice==='DONE'?'Done':'Follow'}
+           </button>
+          ))}
+         </div>
+        </td>
+       </tr>;
+      })}
+
+      <tr className="ic-simple-extra-band">
+       <td colSpan={5} className="ic-simple-div-r" style={{fontWeight:600,color:'var(--muted,#728078)'}}>
+        Match to an existing item from {record.supplierName} or leave unmatched
+       </td>
+       <td colSpan={7} style={{fontWeight:700,color:'#674188'}}>
+        Extra / unmatched items from invoice (not on order: {effectiveUnmatched.length})
+       </td>
+      </tr>
+
+      {effectiveUnmatched.length===0?<tr>
+       <td colSpan={12} style={{padding:'12px 10px',color:'var(--muted,#728078)',textAlign:'center'}}>
+        No extra or unmatched items on this invoice.
+       </td>
+      </tr>:effectiveUnmatched.map(u=>(
+       <tr key={u.id} className={u.matchedOpt&&u.mark==='DONE'?'ic-simple-row-matched':'ic-simple-row-extra'}>
+        <td colSpan={5} className="ic-simple-div-r">
+         <div className="ic-simple-extra-controls">
+          <select
+           aria-label={`Match supplier item for ${u.receiveProductName}`}
+           disabled={locked||busy||!!claim||!hasDraft}
+           value={u.selectedProductId}
+           onChange={e=>{
+            const pid=e.target.value;
+            void handleConfirmExtraRow(u,pid?'SUPPLIER_ITEM':'RESET',pid||undefined);
+           }}>
+           <option value="">{u.savedDecision?'Reset extra review…':'Match supplier item…'}</option>
+           {model.supplierOptions.map(opt=><option key={opt.id} value={opt.id}>{opt.code} · {opt.name}{opt.price!=null?` (${money(opt.price)})`:''}</option>)}
+          </select>
+          <button
+           type="button"
+           disabled={locked||busy||!!claim||!hasDraft}
+           className={`ic-simple-unmatch-btn ${u.leaveUnmatched?'active':''}`}
+           onClick={()=>void handleConfirmExtraRow(u,u.leaveUnmatched?'RESET':'LEAVE_UNMATCHED')}>
+           {u.leaveUnmatched?'Left unmatched ✓':'Leave unmatched'}
+          </button>
+         </div>
+        </td>
+        <td className="ic-simple-ctr ic-simple-cell-r" style={{color:'#674188',fontWeight:600}}>{u.receiveNo}</td>
+        <td className="ic-simple-cell-r" style={{color:'#674188',fontWeight:700}}>{u.receiveProductId}</td>
+        <td className="ic-simple-cell-r" style={{color:'#4a2c66'}}><strong>{u.receiveProductName}</strong></td>
+        <td className="ic-simple-num ic-simple-cell-r">{money(u.receivePrice)}</td>
+        <td className="ic-simple-num ic-simple-div-r">{u.receiveQty??'—'} {u.receiveUnit}</td>
+        <td className="ic-simple-cell-r" style={{fontWeight:600,color:u.matchedOpt?'#286246':'#674188'}}>
+         {u.status}
+        </td>
+        <td className="ic-simple-ctr">
+         <div className="ic-simple-mark">
+          {(['DONE','FOLLOW'] as const).map(choice=>(
+           <button
+            key={choice}
+            type="button"
+            className={choice==='DONE'?'done':'follow-extra'}
+            disabled={locked}
+            aria-pressed={u.mark===choice}
+            onClick={()=>{setDirty(true);setEdits(prev=>({...prev,[u.id]:{...prev[u.id],mark:choice}}));}}>
+            {choice==='DONE'?'Done':'Follow'}
+           </button>
+          ))}
+         </div>
+        </td>
+       </tr>
+      ))}
+     </tbody>
+    </table>
+   </div>
+  </section>
+
+  <div className="ic-simple-step4">
+   <section aria-label="Totals and invoice approval" className="h-panel ic-simple-card">
+    <div className="h-panel-head">
+     <div>
+      <h2>Step 4a · Totals &amp; Invoice Check</h2>
+      <p>Verify printed reference, date, totals and VAT before approval.</p>
+     </div>
+     {hasDraft&&!locked&&<Button variant="quiet" busy={busy} disabled={hasUnsaved} onClick={()=>void act('use-extraction')}>Use AI draft figures</Button>}
+    </div>
+
+    <div className="ic-simple-card-body">
+     <fieldset className="ic-fieldset" disabled={busy||locked}>
+      <div className="ic-simple-meta-grid">
+       <Field label="Invoice reference"><input value={invoiceRef} onChange={e=>{setInvoiceRef(e.target.value);setDirty(true);}}/></Field>
+       <Field label="Invoice date"><input type="date" value={invoiceDate} onChange={e=>{setInvoiceDate(e.target.value);setDirty(true);}}/></Field>
+       <Field label="Original invoice">
+        <select value={invoiceDocId} onChange={e=>{setInvoiceDocId(e.target.value);setDirty(true);}}>
+         <option value="">Choose document</option>
+         {record.documents.filter(d=>d.kind==='INVOICE').map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+       </Field>
+       <Field label="Invoice net (£)"><input type="number" step="0.01" value={netInput} onChange={e=>{setNetInput(e.target.value);setTotalsVerified(false);setDirty(true);}}/></Field>
+       <Field label="VAT (£)"><input type="number" step="0.01" value={vatInput} onChange={e=>{setVatInput(e.target.value);setTotalsVerified(false);setDirty(true);}}/></Field>
+       <Field label="Invoice gross (£)"><input type="number" step="0.01" value={grossInput} onChange={e=>{setGrossInput(e.target.value);setTotalsVerified(false);setDirty(true);}}/></Field>
+       <Field label="Charges / discounts (£)"><input type="number" step="0.01" value={adjInput} onChange={e=>{setAdjInput(e.target.value);setTotalsVerified(false);setDirty(true);}}/></Field>
+      </div>
+
+      <div className="ic-simple-totals-box" style={{margin:'10px 0'}}>
+       <div>
+        Ordered lines billed: <strong>{money(totalsCheck.orderedLineBilledSumPence/100)}</strong>
+        {' · '}Extra unmatched: <strong>{money(totalsCheck.unmatchedExtraSumPence/100)}</strong>
+        {' · '}Net check:{' '}
+        <strong style={{color:totalsCheck.linesPlusAdjustmentMatchesNet?'#286246':'#9a662a'}}>
+         {totalsCheck.linesPlusAdjustmentMatchesNet?'Matches Invoice Net':totalsCheck.differenceToNetPence!=null?`${money(totalsCheck.differenceToNetPence/100)} difference`:'Check figures'}
+        </strong>
+       </div>
+       {!totalsCheck.linesPlusAdjustmentMatchesNet&&totalsCheck.differenceToNetPence===totalsCheck.unmatchedExtraSumPence&&totalsCheck.unmatchedExtraSumPence>0&&!locked&&(
+        <Button variant="secondary" onClick={()=>{setAdjInput((totalsCheck.unmatchedExtraSumPence/100).toFixed(2));setDirty(true);}}>
+         Allocate extra {money(totalsCheck.unmatchedExtraSumPence/100)} to charges
+        </Button>
+       )}
+      </div>
+
+      <div style={{display:'grid',gap:6}}>
+       <label className="h-check">
+        <input type="checkbox" checked={matchingVerified} onChange={e=>{setMatchingVerified(e.target.checked);setDirty(true);}}/>
+        Supplier, branch, products, packs/units and extra items checked against original document.
+       </label>
+       <label className="h-check">
+        <input type="checkbox" checked={totalsVerified} onChange={e=>{setTotalsVerified(e.target.checked);setDirty(true);}}/>
+        Line totals, charges/discounts and VAT agree with printed invoice totals.
+       </label>
+      </div>
+
+      <Field label="Accounts notes / other issue resolution">
+       <textarea rows={2} value={notes} placeholder="Optional notes or resolution for Other delivery issues" onChange={e=>{setNotes(e.target.value);setDirty(true);}}/>
+      </Field>
+     </fieldset>
+
+     {record.status==='HOLD'&&(
+      <div className="ic-evidence">
+       <strong>On hold:</strong> {record.holdReason} · {record.holdOwner}{record.holdUntil?' · '+day(record.holdUntil):''}
+       {resumeOpen?(
+        <div style={{marginTop:8,display:'grid',gap:8}}>
+         <Field label="Reason for returning to review">
+          <textarea rows={2} maxLength={2000} value={resumeReason} onChange={e=>setResumeReason(e.target.value)} placeholder="What new information allows review to continue?"/>
+         </Field>
+         <div className="ic-row">
+          <Button variant="secondary" disabled={busy} onClick={()=>{setResumeOpen(false);setResumeReason('');}}>Cancel return</Button>
+          <Button busy={busy} disabled={dirty||!resumeReason.trim()} onClick={async()=>{if(await act('resume',{reason:resumeReason})){setResumeOpen(false);setResumeReason('');}}}>Confirm return to review</Button>
+         </div>
+        </div>
+       ):(
+        <div style={{marginTop:8}}>
+         <Button variant="secondary" disabled={hasUnsaved} busy={busy} onClick={()=>setResumeOpen(true)}>Return to review</Button>
+        </div>
+       )}
+      </div>
+     )}
+
+     {hold&&(
+      <div className="ic-evidence" style={{display:'grid',gap:8}}>
+       <strong>Hold for information</strong>
+       <Field label="Information needed"><textarea rows={2} value={holdReason} onChange={e=>setHoldReason(e.target.value)}/></Field>
+       <div className="h-form-grid">
+        <Field label="Person responsible"><input value={holdOwner} onChange={e=>setHoldOwner(e.target.value)}/></Field>
+        <Field label="Follow-up date (optional)"><input type="date" value={holdUntil} onChange={e=>setHoldUntil(e.target.value)}/></Field>
+       </div>
+       <div className="ic-row">
+        <Button variant="secondary" onClick={()=>{setHold(false);setHoldReason('');setHoldOwner('');setHoldUntil('');}}>Cancel</Button>
+        <Button busy={busy} onClick={async()=>{if(await act('hold',{reason:holdReason,owner:holdOwner,until:holdUntil})){setHold(false);setHoldReason('');setHoldOwner('');setHoldUntil('');}}}>Save hold</Button>
+       </div>
+      </div>
+     )}
+
+     {record.status!=='APPROVED'&&approvalProblems.length>0&&(
+      <details style={{fontSize:12,color:'var(--muted,#728078)',background:'#f8faf3',border:'1px solid var(--line,#e4e8df)',borderRadius:9,padding:'8px 12px'}}>
+       <summary style={{cursor:'pointer',fontWeight:600,color:'#213b35'}}>{approvalProblems.length} remaining check{approvalProblems.length===1?'':'s'} before invoice approval</summary>
+       <ul style={{margin:'6px 0 0',paddingLeft:18}}>
+        {approvalProblems.map(p=><li key={p}>{p}</li>)}
+       </ul>
+      </details>
+     )}
+
+     {record.status==='APPROVED'?(
+      <p className="h-notice success" style={{margin:0}}>Invoice approved and locked. This does not mark it paid or close any outstanding goods collection.</p>
+     ):(
+      <div className="ic-simple-card-foot">
+       <Button variant="secondary" busy={busy} disabled={locked} onClick={()=>void handleSaveReview()}>Save review</Button>
+       <Button busy={busy} disabled={uploadPending||readingDirty||creditDirty||emailDirty||(!dirty&&approvalProblems.length>0)} onClick={()=>void handleApproveInvoice()}>Approve invoice</Button>
+       <Button variant="quiet" busy={busy} disabled={dirty} onClick={()=>setHold(v=>!v)}>Hold</Button>
+      </div>
+     )}
+    </div>
+   </section>
+
+   <section aria-label="Claim and credit note follow-up" className="h-panel ic-simple-card">
+    <div className="h-panel-head">
+     <div>
+      <h2>Step 4b · Claim &amp; Credit Note Follow-up</h2>
+      <p>Send credit claims and reconcile supplier credit notes.</p>
+     </div>
+     {claim&&<Tag tone={claim.state==='SENT'?'green':'amber'}>Claim {claim.state.toLowerCase()}</Tag>}
+    </div>
+
+    <div className="ic-simple-card-body">
+     {!claim&&(
+      <>
+       <div style={{fontSize:13,color:'#213b35',lineHeight:1.55}}>
+        <div><strong>{claimableRows.length}</strong> claimable item{claimableRows.length===1?'':'s'} marked Follow · Estimated claim: <strong>{money(estimatedFollowPence/100)}</strong> net</div>
+        {claimableRows.length>0&&<ul style={{margin:'8px 0 0',paddingLeft:18,fontSize:12,color:'var(--muted,#728078)'}}>
+         {claimableRows.map(r=><li key={r.id}>{r.orderProductName}: {money(r.creditEstimatePence/100)} ({r.status})</li>)}
+        </ul>}
+        {noteOnlyFollowRows.length>0&&<div style={{marginTop:8,fontSize:12,color:'#264673'}}>
+         Detail notes (£0 financial claim, saved to review notes): {noteOnlyFollowRows.map(r=>`${r.orderProductName} (${r.status})`).join(', ')}
+        </div>}
+       </div>
+       <div className="ic-simple-card-foot">
+        <Button busy={busy} disabled={record.status==='APPROVED'||uploadPending||claimableRows.length===0} onClick={()=>void handlePrepareAndApproveClaim()}>
+         1. Prepare &amp; approve claim ({money(estimatedFollowPence/100)})
+        </Button>
+       </div>
+      </>
+     )}
+
+     {claim&&claim.state!=='SENT'&&(
+      <>
+       <div style={{fontSize:13,color:'var(--forest,#173a31)',fontVariantNumeric:'tabular-nums'}}>
+        <strong>Claim {claim.state.toLowerCase()}</strong> · {money(claim.lines.reduce((s,l)=>s+l.netPence,0)/100)} net
+       </div>
+       <ul style={{margin:0,paddingLeft:18,fontSize:12,color:'var(--muted,#728078)'}}>
+        {claim.lines.map(l=><li key={l.lineId}>{record.lines.find(i=>i.id===l.lineId)?.name}: {money(l.netPence/100)} — {l.reason}</li>)}
+       </ul>
+       {claim.state==='DRAFT'&&(
+        <Button busy={busy} disabled={dirty} onClick={()=>void act('approve-claim')}>Approve claim</Button>
+       )}
+       <InvoiceClaimEmail
+        record={record}
+        recipient={recipient}
+        message={message}
+        setRecipient={setRecipient}
+        setMessage={setMessage}
+        disabled={uploadPending||dirty||readingDirty||creditDirty}
+        busy={busy}
+        preview={preview}
+        run={run}
+        onDirty={setEmailDirty}
+        onChanged={r=>{
+         setRecord(r);
+         syncFromRecord(r,false);
+         setNotice(r.claim?.state==='SENT'?'Claim sent — record the supplier credit note below once received.':'Email progress saved.');
+        }}
+       />
+      </>
+     )}
+
+     {claim?.state==='SENT'&&(
+      <>
+       <div style={{fontSize:13,color:'#213b35',fontVariantNumeric:'tabular-nums'}}>
+        <strong>Claim sent</strong>{claim.recipient?` (${claim.recipient})`:''} · Remaining open balance: <strong>{money(outstandingClaim(record)/100)}</strong>
+       </div>
+
+       {record.credits.map(n=>(
+        <article className="ic-issue" key={n.id} style={{margin:'4px 0',padding:12}}>
+         <div className="ic-row">
+          <strong>{n.reference} · {money(n.grossPence/100)} gross</strong>
+          <Tag tone={n.status==='APPROVED'?'green':'amber'}>{n.status==='APPROVED'?'Credit approved':'Awaiting credit approval'}</Tag>
+         </div>
+         <CaseDocuments record={record} ids={[n.documentId]}/>
+         {n.status==='DRAFT'&&<Button busy={busy} onClick={()=>void act('approve-credit',{creditId:n.id})}>Approve this credit note</Button>}
+        </article>
+       ))}
+
+       {outstandingClaim(record)>0&&!record.credits.some(n=>n.status==='DRAFT')&&record.status!=='APPROVED'&&(
+        <div className="ic-simple-credit-box">
+         <DocumentUpload
+          compact
+          onPendingChange={onUploadPending}
+          record={record}
+          run={run}
+          kind="CREDIT"
+          label="Upload original credit note"
+          onUploaded={id=>{setCreditDoc(id);setCreditDirty(true);}}
+         />
+         <div className="ic-simple-meta-grid">
+          <Field label="Credit note reference"><input value={creditRef} onChange={e=>{setCreditRef(e.target.value);setCreditDirty(true);}}/></Field>
+          <Field label="Original invoice ref"><input value={creditInvoice} onChange={e=>{setCreditInvoice(e.target.value);setCreditDirty(true);}}/></Field>
+          <Field label="Credit document">
+           <select value={creditDoc} onChange={e=>{setCreditDoc(e.target.value);setCreditDirty(true);}}>
+            <option value="">{preview?'Auto sample PDF/PNG on save':'Select document'}</option>
+            {record.documents.filter(d=>d.kind==='CREDIT').map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+           </select>
+          </Field>
+          <Field label="Credit net (£)"><input type="number" min="0" step="0.01" value={creditNetInput} onChange={e=>{setCreditNetInput(e.target.value);setCreditDirty(true);}}/></Field>
+          <Field label="Credit VAT (£)"><input type="number" min="0" step="0.01" value={creditVatInput} onChange={e=>{setCreditVatInput(e.target.value);setCreditDirty(true);}}/></Field>
+          <Field label="Credit gross (£)"><input type="number" min="0" step="0.01" value={creditGrossInput} onChange={e=>{setCreditGrossInput(e.target.value);setCreditDirty(true);}}/></Field>
+         </div>
+         <label className="h-check">
+          <input type="checkbox" checked={creditVerified} onChange={e=>{setCreditVerified(e.target.checked);setCreditDirty(true);}}/>
+          Credit note matches supplier amount, invoice ref and VAT.
+         </label>
+         <div className="ic-simple-card-foot">
+          <Button busy={busy} disabled={uploadPending} onClick={()=>void handleRecordCredit()}>
+           Record &amp; approve credit note
+          </Button>
+         </div>
+        </div>
+       )}
+
+       {outstandingClaim(record)===0&&!record.credits.some(n=>n.status==='DRAFT')&&(
+        <p className="h-notice success" style={{margin:0}}>Claim fully resolved. Confirm totals on the left and click Approve invoice when ready.</p>
+       )}
+      </>
+     )}
+    </div>
+   </section>
+  </div>
+
+  {(canReportLaterDelivery(record)||!!record.laterDeliveryIds?.length)&&(
+   <details id="ic-follow-up" tabIndex={-1} className="ic-section ic-account-replacements">
+    <summary>Replacements &amp; later deliveries{record.laterReceipts?.some(r=>r.status==='PENDING')?' — awaiting review':''}</summary>
+    <LaterDeliveries
+     record={record}
+     accounts
+     disabled={hasUnsaved||busy}
+     onChanged={async()=>{
+      const result=await run({action:'invoice-case-get'});
+      if(result?.record)syncFromRecord(result.record,false);
+     }}
+    />
+   </details>
+  )}
+
+  <details className="ic-section ic-audit">
+   <summary>Review history ({record.audit.length})</summary>
+   <ol>
+    {record.audit.map((a,i)=><li key={i}>{day(a.at)} · {a.action.replaceAll('-',' ')} · {a.by}{a.details?' — '+a.details:''}</li>)}
+   </ol>
+  </details>
+ </div>;
+}

@@ -27,3 +27,6 @@ process_*_csv.js
 *credentials*.json
 *.pem
 *.key
+.aistudio/
+.playwright-cli/
+public/assets/aistudio/
