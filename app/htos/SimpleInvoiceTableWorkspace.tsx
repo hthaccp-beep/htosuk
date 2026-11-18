@@ -493,9 +493,11 @@ export function SimpleInvoiceTableWorkspace({
    <Button variant="quiet" onClick={switchToClassic}>Classic check view</Button>
   </div>
 
-  <Heading eyebrow="ACCOUNTS REVIEW" title={record.invoiceReference||'Check invoice'}>
-   {record.branchName} · {record.supplierName}
-  </Heading>
+  <div className="ic-simple-header">
+   <Heading eyebrow="ACCOUNTS REVIEW" title={record.invoiceReference||'Check invoice'}>
+    {record.branchName} · {record.supplierName}
+   </Heading>
+  </div>
 
   <section className="h-panel ic-simple-context" aria-label="Delivery report and invoice documents">
    <div className="ic-simple-context-top">
@@ -504,9 +506,6 @@ export function SimpleInvoiceTableWorkspace({
       <strong>Staff report:</strong>{' '}
       {record.receipt.statuses.length?record.receipt.statuses.map(s=>receiptStatusLabels[s]).join(' · '):'Delivery report pending'}
       {record.receipt.notes&&<span> — {record.receipt.notes}</span>}
-     </div>
-     <div className="ic-simple-subnote">
-      Compare Order vs Receive side by side · Mark each row Done or Follow · Confirm totals &amp; credit follow-up below.
      </div>
      <CaseDocuments record={record}/>
     </div>
@@ -573,8 +572,7 @@ export function SimpleInvoiceTableWorkspace({
       <tr>
        <th colSpan={5} className="ic-simple-group-order">Order (Saved HTOS order)</th>
        <th colSpan={5} className="ic-simple-group-receive">Receive (Delivery &amp; Supplier invoice)</th>
-       <th rowSpan={2} className="ic-simple-head-sticky ic-simple-cell-r" style={{textAlign:'left',minWidth:132}}>Status</th>
-       <th rowSpan={2} className="ic-simple-head-sticky ic-simple-ctr" style={{minWidth:102}}>Mark</th>
+       <th colSpan={2} className="ic-simple-group-review">Review &amp; Action</th>
       </tr>
       <tr className="ic-simple-subhead">
        <th className="ic-simple-ctr" style={{width:28}}>No</th>
@@ -587,6 +585,8 @@ export function SimpleInvoiceTableWorkspace({
        <th style={{textAlign:'left',minWidth:112}}>Product</th>
        <th className="ic-simple-num" style={{width:62}}>Price</th>
        <th className="ic-simple-num ic-simple-div-r" style={{width:78}}>Qty</th>
+       <th style={{textAlign:'left',minWidth:132}}>Status</th>
+       <th className="ic-simple-ctr" style={{minWidth:102}}>Mark</th>
       </tr>
      </thead>
      <tbody>

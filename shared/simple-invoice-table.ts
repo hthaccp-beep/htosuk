@@ -151,7 +151,8 @@ export function buildSimpleInvoiceTable(record:InvoiceCase,catalogProducts:Produ
    const issueTheme:SimpleIssueTheme=hasDamage||hasMissing||hasIncorrect||hasOutOfStock?'qty':priceDiffers?'price':codeDiffers||nameDiffers||r.differingWording.length>0||unitCheckRequired?'detail':'matched';
 
    let creditEstimatePence=disc.known?disc.totalPence:0;
-   if(!disc.known&&priceDisplay!=null&&billedDisplay!=null){
+   const canEstimateFallback=!disc.known&&!unitCheckRequired&&!r.readingStale&&!r.suggestedMatch&&priceDisplay!=null&&billedDisplay!=null;
+   if(canEstimateFallback){
     const badQty=issues.filter(i=>i.kind==='DAMAGED'||i.kind==='INCORRECT').reduce((s,i)=>s+(i.quantity||0),0);
     const usableQty=r.received!=null?Math.max(0,r.received-badQty):billedDisplay;
     const qtyDiff=Math.max(0,billedDisplay-usableQty);

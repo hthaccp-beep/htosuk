@@ -74,6 +74,7 @@ test('assigns distinct colour themes (price yellow, detail blue, qty red, matche
  assert.equal(table.unmatched[0].receiveProductId,'EXTRA-99');
  assert.equal(table.unmatched[0].lineAmountPence,2400);
  assert.deepEqual(table.supplierOptions.map(s=>s.id),['p-rice','p-oil']);
+ assert.equal(table.summary.estimatedClaimPence,5800);
 });
 
 test('maps Damage and Missing statuses cleanly and marks clean matched lines as Done',()=>{
@@ -181,4 +182,17 @@ test('confirm-extra-row and restore-extra-row audit, resolve unit review blocker
  );
  assert.ok(invoiceUnitReviewProblems(restored).some(msg=>msg.includes('1 invoice row')));
  assert.equal(buildSimpleInvoiceTable(restored,catalog).unmatched[0].savedDecision,undefined);
+});
+
+test('does not compute bogus cross-unit credit estimates before pack/unit review is confirmed',()=>{
+ const base=extractionCase();
+ base.receipt={...base.receipt,statuses:['RECEIVED'],notes:'',issues:[]};
+ base.lines=base.lines.map(l=>({...l,received:l.ordered,invoiceQuantity:undefined,invoicePrice:undefined}));
+ const fx=extractionFixture();
+ fx.rows=fx.rows.map((r,i)=>i===0?{...r,unit:'packs',quantity:24,unitPrice:19,netAmount:456}:r);
+ const attached=attachInvoiceExtraction(base,base.documents[0].id,fx);
+
+ const table=buildSimpleInvoiceTable(attached,catalog);
+ assert.equal(table.ordered[0].unitCheckRequired,true);
+ assert.equal(table.ordered[0].creditEstimatePence,0);
 });
