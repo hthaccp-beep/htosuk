@@ -12,6 +12,7 @@
 The user requires a visible version for every production update, starting at 8.01.
 
 - `app-version.json` is the single source of truth for the user-facing version.
+- Every Git commit and Vercel deploy title for a release MUST start with `Release <version>: <short summary>` (for example, `Release 9.23: ...`), matching the version in `app-version.json` rather than `feat:` or `feat(ui):`.
 - For every subsequent production update, run `npm run version:next` once before the final build. Versions progress 8.01, 8.02, 8.03, etc.
 - Do not increment for preview builds, tests, a retry of the same release, or a discussion without app changes.
 - Preserve the same version across all builds of a release. Verify the version on the live app after deployment.
