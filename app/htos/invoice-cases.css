@@ -278,4 +278,102 @@
  .ic-simple-tab{min-height:44px}
 }
 
+/* Simplified 3-step guided Invoice Check & clean 5-column item table */
+.ic-simple-guide-bar{background:#fff;border:1px solid var(--line,#e4e8df);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:grid;gap:10px}
+.ic-simple-guide-bar.is-ready{border-color:#c6dcc1;background:#f3f9f2;color:#23543b}
+.ic-simple-stepper{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ic-simple-step{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;border:1px solid #e4e8df;background:#fafbf7;color:#213b35;text-align:left;cursor:pointer;transition:background .15s,border-color .15s;min-width:0}
+.ic-simple-step:hover{background:#f1f5ec;border-color:#cbd5c5}
+.ic-simple-step:focus-visible{outline:2px solid #286246;outline-offset:2px}
+.ic-simple-step.is-done{background:#f3f9f2;border-color:#cfe2cc}
+.ic-simple-step.is-attention{background:#fffaf0;border-color:#e5d3a3}
+.ic-simple-step-badge{width:24px;height:24px;border-radius:999px;display:inline-grid;place-items:center;font-size:12px;font-weight:700;flex:none;background:#e4eae0;color:#213b35;font-variant-numeric:tabular-nums}
+.ic-simple-step.is-done .ic-simple-step-badge{background:#286246;color:#fff}
+.ic-simple-step.is-attention .ic-simple-step-badge{background:#f3dfa9;color:#5f4616}
+.ic-simple-step-copy{display:grid;gap:2px;min-width:0}
+.ic-simple-step-copy strong{font-size:13px;line-height:1.25;color:#173a31;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ic-simple-step-copy span{font-size:12px;line-height:1.25;color:#5a6b62;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ic-simple-step.is-done .ic-simple-step-copy span{color:#286246;font-weight:600}
+.ic-simple-step.is-attention .ic-simple-step-copy span{color:#8a5a19;font-weight:600}
+.ic-simple-guide-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;padding-top:8px;border-top:1px solid #edf0e9}
+.ic-simple-guide-next{margin:0;display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.45;color:#213b35;font-weight:500}
+.ic-simple-guide-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.ic-simple-inline-action{border:0;background:transparent;padding:4px 0;color:#173a31;font-size:13px;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+.ic-simple-inline-action:hover{color:#286246}
+.ic-simple-text-toggle{display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;padding:4px 2px;color:#4a5a52;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.ic-simple-text-toggle:hover{color:#173a31}
+.ic-simple-text-toggle.is-warn{color:#8a5a19}
+.ic-simple-checklist-detail{margin:0;padding:10px 0 2px 20px;border-top:1px solid #edf0e9;display:grid;gap:4px;font-size:12.5px;color:#4a5a52;line-height:1.45}
+
+.ic-simple-totals-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-variant-numeric:tabular-nums}
+.ic-text-ok{color:#286246}
+.ic-text-warn{color:#9a662a}
+.ic-text-extra{color:#674188;font-weight:600}
+.ic-simple-utility-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding-top:10px;border-top:1px solid #edf0e9}
+.ic-simple-drawer{padding-top:10px;border-top:1px solid #edf0e9}
+.ic-simple-drawer .ic-section{border-bottom:0;margin-bottom:0;padding:4px 0}
+
+/* Clean 5-column item check table */
+.ic-clean-table{min-width:0;width:100%;font-size:13px}
+.ic-clean-table th{padding:10px 14px;font-size:11.5px;letter-spacing:0;border-right:0}
+.ic-clean-table td{padding:11px 14px;border-right:0;vertical-align:middle}
+.ic-clean-table tbody tr.ic-simple-row-matched{background:#fff}
+.ic-clean-table tbody tr.ic-simple-row-matched:hover{background:#f8faf6}
+.ic-clean-table tbody tr.ic-simple-row-price{background:#fefbf2}
+.ic-clean-table tbody tr.ic-simple-row-detail{background:#f7f9fd}
+.ic-clean-table tbody tr.ic-simple-row-qty{background:#fef6f4}
+.ic-clean-item{display:grid;gap:3px;min-width:0}
+.ic-clean-item-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 7px;line-height:1.35}
+.ic-clean-item-top strong{color:#173a31;font-weight:600}
+.ic-clean-no{color:#728078;font-size:12px;font-variant-numeric:tabular-nums}
+.ic-clean-code{color:#66756d;font-size:11.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.ic-clean-invoice-note{font-size:12px;color:#36557d;line-height:1.35}
+.ic-clean-figure{display:grid;gap:2px;justify-items:end;font-variant-numeric:tabular-nums;line-height:1.3}
+.ic-clean-figure strong{font-size:13px;font-weight:600;color:#173a31}
+.ic-clean-figure span{font-size:12px;color:#5a6b62}
+.ic-clean-figure small{font-size:11.5px;font-weight:600}
+.ic-val-price{color:#8a5210!important;background:#fae7bc;padding:1px 6px;border-radius:4px;font-weight:700!important}
+.ic-val-qty{color:#9b2c1c!important;background:#fcdcd4;padding:1px 6px;border-radius:4px;font-weight:700!important}
+.ic-val-detail{color:#264673!important;background:#dce7f8;padding:1px 6px;border-radius:4px;font-weight:700!important}
+.ic-clean-edit-grid{display:grid;gap:5px;justify-items:end}
+.ic-clean-edit-grid label{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#5a6b62}
+.ic-clean-edit-grid input{width:76px;min-height:34px;padding:4px 8px;border:1px solid #cdd6ca;border-radius:7px;background:#fff;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums}
+.ic-clean-edit-grid small{font-size:11.5px;color:#5a6b62}
+.ic-simple-metrics{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+
+/* Clean Extra / Unmatched items section */
+.ic-clean-extra-section{border-top:1px solid #dfd7eb;background:#faf7fd;padding:14px 18px;display:grid;gap:12px}
+.ic-clean-extra-head h3{margin:0 0 2px;font-size:14px;font-weight:700;color:#4a2c66}
+.ic-clean-extra-head p{margin:0;font-size:12.5px;color:#624a78}
+.ic-clean-extra-list{display:grid;gap:8px}
+.ic-clean-extra-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding:10px 12px;border-radius:9px;border:1px solid #e1d5ee;background:#fff}
+.ic-clean-extra-row.is-resolved{border-color:#cfe2cc;background:#f5faf4}
+.ic-clean-extra-info{display:grid;gap:3px;min-width:200px;flex:1 1 240px}
+.ic-clean-extra-code{font-size:11.5px;font-weight:700;color:#674188;font-variant-numeric:tabular-nums}
+.ic-clean-extra-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:12px;color:#5a6b62;font-variant-numeric:tabular-nums}
+
+/* Clean Step 3 Confirm & Finish */
+.ic-clean-checks{display:grid;gap:8px}
+.ic-clean-finish-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 14px;padding-top:12px;border-top:1px solid #edf0e9}
+.ic-clean-finish-left,.ic-clean-finish-right{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ic-clean-finish-hint{margin:0;font-size:12.5px;color:#60705b;line-height:1.4}
+
+@media(max-width:960px){
+ .ic-simple-stepper{grid-template-columns:1fr}
+}
+@media(max-width:700px){
+ .ic-clean-table thead{display:none}
+ .ic-clean-table,.ic-clean-table tbody,.ic-clean-table tr,.ic-clean-table td{display:block;width:100%}
+ .ic-clean-table tr{padding:12px 14px;border-bottom:1px solid #e4e8df;display:grid;gap:8px}
+ .ic-clean-table td{padding:0;text-align:left!important}
+ .ic-clean-table td.ic-mobile-labeled{display:flex;align-items:baseline;gap:8px}
+ .ic-clean-table td.ic-mobile-labeled:before{content:attr(data-label) ':';font-size:12px;font-weight:600;color:#66756d;min-width:60px;flex:none}
+ .ic-clean-figure{justify-items:start;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+ .ic-clean-edit-grid{justify-items:start}
+ .ic-clean-finish-bar{flex-direction:column;align-items:stretch}
+ .ic-clean-finish-left,.ic-clean-finish-right{width:100%}
+ .ic-clean-finish-right .h-button{flex:1}
+}
+
+
 

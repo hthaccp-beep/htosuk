@@ -117,7 +117,11 @@ export function buildSimpleInvoiceTable(record:InvoiceCase,catalogProducts:Produ
    }
    if(codeDiffers)mismatchReasons.push(`ID ${line.code} vs ${reading?.code}`);
    if(nameDiffers)mismatchReasons.push('Name differs');
-   const unitNote=unitCheckRequired&&reading?.unit&&norm(reading.unit)!==norm(line.unit)?`Unit ${reading.unit} vs ${line.unit}`:unitCheckRequired?'Confirm unit':undefined;
+   const rawReadingUnit=reading?.unit?.trim();
+   const isUnitUnclear=!rawReadingUnit||norm(rawReadingUnit)==='unit unclear';
+   const unitNote=unitCheckRequired
+    ?(isUnitUnclear?`Unit unclear (ordered ${line.unit})`:norm(rawReadingUnit)!==norm(line.unit)?`Invoice unit ${rawReadingUnit} vs ${line.unit}`:'Confirm pack / unit')
+    :undefined;
    if(unitNote)mismatchReasons.push(unitNote);
 
    const statusParts:string[]=[];
@@ -342,4 +346,187 @@ export function computeClaimSummaryMetrics(
   lineBreakdown,
  };
 }
+
+export type ChecklistJumpTarget='TOTALS'|'READING'|'ITEMS'|'EXTRA'|'SIGNOFF'|'CREDITS';
+
+export interface SimpleChecklistStep {
+ id:'DETAILS'|'ITEMS'|'FINISH';
+ number:1|2|3;
+ title:string;
+ summary:string;
+ done:boolean;
+ attention:boolean;
+ target:ChecklistJumpTarget;
+}
+
+export interface SimpleInvoiceChecklist {
+ steps:SimpleChecklistStep[];
+ nextHint:string;
+ nextTarget:ChecklistJumpTarget;
+ readingActionCount:number;
+ readingActionLabel:string;
+ pendingExtraCount:number;
+ remainingCount:number;
+}
+
+export function formatShortOrderRef(orderId?:string):string {
+ const raw=String(orderId||'').trim();
+ if(!raw)return '';
+ if(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)){
+  return '#'+raw.slice(0,8).toUpperCase();
+ }
+ return raw.length>18?'#'+raw.slice(0,14)+'…':raw;
+}
+
+export function formatInvoiceWorkspaceTitle(record:Pick<InvoiceCase,'invoiceReference'|'supplierName'|'branchName'|'orderIds'|'id'>):{title:string;orderRef:string} {
+ const ref=record.invoiceReference?.trim();
+ const orderRef=formatShortOrderRef(record.orderIds[0]||record.id);
+ if(ref)return {title:ref,orderRef};
+ return {title:record.supplierName||'Check invoice',orderRef};
+}
+
+export function summarizeInvoiceChecklist(
+ record:InvoiceCase,
+ approvalProblems:string[],
+ options:{
+  followOrderedCount:number;
+  pendingExtraCount:number;
+  totalsBalanced:boolean;
+  hasRefAndDate:boolean;
+  matchingVerified:boolean;
+  totalsVerified:boolean;
+  openClaimPence:number;
+  hasPendingLaterDelivery:boolean;
+  claimableCount:number;
+ },
+):SimpleInvoiceChecklist {
+ const readingProblems=approvalProblems.filter(p=>{
+  const lower=p.toLowerCase();
+  return lower.includes('reading review')||lower.includes('blank invoice row')||lower.includes('no longer matches its original');
+ });
+ let readingActionCount=0;
+ for(const p of readingProblems){
+  const m=p.match(/(\d+)/);
+  readingActionCount+=m?Number(m[1]):1;
+ }
+ const readingActionLabel=readingProblems.length
+  ? readingProblems.map(p=>p.replace(/ against the original before approval\.?$/i,'').replace(/ in the reading review\.?$/i,'')).join(' · ')
+  : '';
+
+ const detailsDone=options.hasRefAndDate&&options.totalsBalanced;
+ const itemsDone=readingProblems.length===0&&options.pendingExtraCount===0&&!approvalProblems.some(p=>{
+  const lower=p.toLowerCase();
+  return lower.includes('complete receipt')||lower.includes('review and resolve every item');
+ });
+ const creditsBlocked=options.openClaimPence>0||options.hasPendingLaterDelivery||approvalProblems.some(p=>{
+  const lower=p.toLowerCase();
+  return lower.includes('claim')||lower.includes('credit')||lower.includes('later delivery');
+ });
+ const finishDone=record.status==='APPROVED'||(approvalProblems.length===0&&options.matchingVerified&&options.totalsVerified);
+
+ const step1:SimpleChecklistStep={
+  id:'DETAILS',
+  number:1,
+  title:'Invoice details',
+  summary:!options.hasRefAndDate?'Enter ref & date':!options.totalsBalanced?'Check Net, VAT & Gross':'Totals matched',
+  done:detailsDone,
+  attention:!detailsDone,
+  target:'TOTALS',
+ };
+
+ const step2Summary=readingProblems.length>0
+  ? `${readingActionCount} scan check${readingActionCount===1?'':'s'}`
+  : options.pendingExtraCount>0
+   ? `${options.pendingExtraCount} extra item${options.pendingExtraCount===1?'':'s'}`
+   : options.followOrderedCount>0
+    ? `${options.followOrderedCount} item${options.followOrderedCount===1?'':'s'} flagged`
+    : itemsDone
+     ? 'Items checked'
+     : 'Review items';
+
+ const step2Target:ChecklistJumpTarget=readingProblems.length>0
+  ? 'READING'
+  : options.pendingExtraCount>0
+   ? 'EXTRA'
+   : 'ITEMS';
+
+ const step2:SimpleChecklistStep={
+  id:'ITEMS',
+  number:2,
+  title:'Check items',
+  summary:step2Summary,
+  done:itemsDone&&options.followOrderedCount===0,
+  attention:!itemsDone||options.pendingExtraCount>0,
+  target:step2Target,
+ };
+
+ const step3Summary=record.status==='APPROVED'
+  ? 'Approved'
+  : creditsBlocked
+   ? (options.hasPendingLaterDelivery?'Review replacement':options.openClaimPence>0?'Credit outstanding':'Send supplier claim')
+   : (!options.matchingVerified||!options.totalsVerified)
+    ? 'Tick 2 sign-off boxes'
+    : options.claimableCount>0&&!record.claim
+     ? 'Prepare claim or approve'
+     : approvalProblems.length===0
+      ? 'Ready to approve'
+      : 'Save & approve';
+
+ const step3Target:ChecklistJumpTarget=creditsBlocked?'CREDITS':'SIGNOFF';
+
+ const step3:SimpleChecklistStep={
+  id:'FINISH',
+  number:3,
+  title:'Confirm & finish',
+  summary:step3Summary,
+  done:finishDone,
+  attention:!finishDone&&(detailsDone&&itemsDone),
+  target:step3Target,
+ };
+
+ let nextHint='All checks complete — ready to approve this invoice.';
+ let nextTarget:ChecklistJumpTarget='SIGNOFF';
+ if(record.status==='APPROVED'){
+  nextHint='Invoice approved and locked.';
+ }else if(readingProblems.length>0){
+  nextHint=`Next: ${readingActionLabel}.`;
+  nextTarget='READING';
+ }else if(!options.hasRefAndDate){
+  nextHint='Next: Enter the invoice number and date (or click Fill from AI draft).';
+  nextTarget='TOTALS';
+ }else if(options.pendingExtraCount>0){
+  nextHint=`Next: Match or mark ${options.pendingExtraCount} extra item${options.pendingExtraCount===1?'':'s'} not on the order.`;
+  nextTarget='EXTRA';
+ }else if(!options.totalsBalanced){
+  nextHint='Next: Check Net, VAT, charges and Gross so the invoice totals match.';
+  nextTarget='TOTALS';
+ }else if(creditsBlocked){
+  nextHint=options.hasPendingLaterDelivery
+   ?'Next: Review the later replacement delivery in Credits & Replacements.'
+   :options.openClaimPence>0
+    ?'Next: Record the supplier credit note or replacement in Credits & Replacements.'
+    :'Next: Send the supplier claim in Credits & Replacements.';
+  nextTarget='CREDITS';
+ }else if(!itemsDone){
+  nextHint='Next: Check highlighted items and click Save review.';
+  nextTarget='ITEMS';
+ }else if(!options.matchingVerified||!options.totalsVerified){
+  nextHint='Next: Tick the 2 confirmation boxes below, then save or approve.';
+  nextTarget='SIGNOFF';
+ }else if(approvalProblems.length>0){
+  nextHint=`Next: ${approvalProblems[0]}`;
+  nextTarget='SIGNOFF';
+ }
+
+ return {
+  steps:[step1,step2,step3],
+  nextHint,
+  nextTarget,
+  readingActionCount,
+  readingActionLabel,
+  pendingExtraCount:options.pendingExtraCount,
+  remainingCount:approvalProblems.length,
+ };
+}
+
 

@@ -228,3 +228,78 @@ test('computeClaimSummaryMetrics summarizes estimated and confirmed claim balanc
  assert.equal(confirmed.lineBreakdown[0].openPence,1000);
  assert.equal(confirmed.lineBreakdown[1].openPence,0);
 });
+
+import {formatInvoiceWorkspaceTitle,formatShortOrderRef,summarizeInvoiceChecklist} from './simple-invoice-table.ts';
+
+test('formatInvoiceWorkspaceTitle hides raw UUIDs behind human-readable titles and short refs',()=>{
+ const uuid='62de9b4d-00a1-4b00-a1bd-b361d09758b3';
+ assert.equal(formatShortOrderRef(uuid),'#62DE9B4D');
+ assert.deepEqual(
+  formatInvoiceWorkspaceTitle({id:uuid,orderIds:[uuid],invoiceReference:'',supplierName:'Four Seasons',branchName:'Ealing'}),
+  {title:'Four Seasons',orderRef:'#62DE9B4D'},
+ );
+ assert.deepEqual(
+  formatInvoiceWorkspaceTitle({id:uuid,orderIds:[uuid],invoiceReference:'INV-90412',supplierName:'Four Seasons',branchName:'Ealing'}),
+  {title:'INV-90412',orderRef:'#62DE9B4D'},
+ );
+});
+
+test('unitNote avoids duplicate "Unit Unit unclear" wording',()=>{
+ const base=extractionCase();
+ base.receipt={...base.receipt,statuses:['RECEIVED'],notes:'',issues:[]};
+ base.lines=base.lines.map(l=>({...l,received:l.ordered,invoiceQuantity:undefined,invoicePrice:undefined}));
+ const fx=extractionFixture();
+ fx.rows=fx.rows.map((r,i)=>i===0?{...r,unit:'Unit unclear',quantity:10,unitPrice:18,netAmount:180}:r);
+ const attached=attachInvoiceExtraction(base,base.documents[0].id,fx);
+ const table=buildSimpleInvoiceTable(attached,catalog);
+ assert.equal(table.ordered[0].unitNote,'Unit unclear (ordered bags)');
+ assert.ok(!table.ordered[0].mismatchReasons.some(m=>m.includes('Unit Unit')));
+});
+
+test('summarizeInvoiceChecklist groups approval checks into 3 clear steps and prioritizes reading review when required',()=>{
+ const base=extractionCase();
+ const readingList=summarizeInvoiceChecklist(
+  base,
+  [
+   'Review 1 blank invoice row against the original before approval.',
+   'Confirm units and price basis for 4 invoice rows in the reading review.',
+   'Confirm the invoice, reference and date.',
+  ],
+  {
+   followOrderedCount:4,
+   pendingExtraCount:2,
+   totalsBalanced:false,
+   hasRefAndDate:false,
+   matchingVerified:false,
+   totalsVerified:false,
+   openClaimPence:0,
+   hasPendingLaterDelivery:false,
+   claimableCount:0,
+  },
+ );
+ assert.equal(readingList.steps.length,3);
+ assert.equal(readingList.readingActionCount,5);
+ assert.equal(readingList.nextTarget,'READING');
+ assert.equal(readingList.steps[1].target,'READING');
+ assert.ok(readingList.nextHint.includes('Review 1 blank invoice row'));
+
+ const readyList=summarizeInvoiceChecklist(
+  base,
+  [],
+  {
+   followOrderedCount:0,
+   pendingExtraCount:0,
+   totalsBalanced:true,
+   hasRefAndDate:true,
+   matchingVerified:true,
+   totalsVerified:true,
+   openClaimPence:0,
+   hasPendingLaterDelivery:false,
+   claimableCount:0,
+  },
+ );
+ assert.equal(readyList.steps.every(s=>s.done),true);
+ assert.equal(readyList.nextTarget,'SIGNOFF');
+ assert.ok(readyList.nextHint.includes('ready to approve'));
+});
+
