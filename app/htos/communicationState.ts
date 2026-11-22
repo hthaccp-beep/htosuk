@@ -12,6 +12,12 @@ export function emailState(order:Pick<OrderRecord,'status'|'emailStatus'|'emailE
     default:return {label:'Email not sent',tone:'',detail:'The order is saved, but no email has been confirmed.'};
   }
 }
+export function emailActionPresentation(order:Pick<OrderRecord,'emailStatus'>){
+  const isRetry=order.emailStatus==='FAILED'||order.emailStatus==='OFFLINE_MANUAL'||order.emailStatus==='UNCERTAIN'||order.emailStatus==='PARTIAL';
+  return isRetry
+    ? {isRetry:true,buttonLabel:'Resend email',modalTitle:'Resend order email',confirmLabel:'Confirm & resend email'}
+    : {isRetry:false,buttonLabel:'Send email',modalTitle:'Send order email',confirmLabel:'Confirm & send email'};
+}
 export function emailFailureStatus(error:unknown):'FAILED'|'UNCERTAIN' {
   return error instanceof TypeError || (error && typeof error==='object' && 'status' in error && error.status===502)?'UNCERTAIN':'FAILED';
 }

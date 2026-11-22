@@ -274,3 +274,72 @@ export function computeTableTotalsCheck(
   differenceToNetPence,
  };
 }
+
+export interface ClaimSummaryLine {
+ lineId:string;
+ name:string;
+ reason:string;
+ netPence:number;
+ creditedPence:number;
+ replacementPence:number;
+ openPence:number;
+}
+
+export interface ClaimSummaryMetrics {
+ hasConfirmedClaim:boolean;
+ originalNetPence:number;
+ creditedPence:number;
+ replacementPence:number;
+ resolvedPence:number;
+ openBalancePence:number;
+ lineBreakdown:ClaimSummaryLine[];
+}
+
+export function computeClaimSummaryMetrics(
+ record:Pick<InvoiceCase,'lines'|'claim'>,
+ fallbackFollowRows:Pick<SimpleOrderedRow,'lineId'|'orderProductName'|'statusLabel'|'creditEstimatePence'|'mismatchReasons'>[]=[],
+):ClaimSummaryMetrics{
+ if(record.claim){
+  const lineBreakdown:ClaimSummaryLine[]=record.claim.lines.map(cl=>{
+   const line=record.lines.find(l=>l.id===cl.lineId);
+   const openPence=Math.max(0,cl.netPence-cl.creditedPence-cl.replacementPence);
+   return {
+    lineId:cl.lineId,
+    name:line?.name||cl.lineId,
+    reason:cl.reason,
+    netPence:cl.netPence,
+    creditedPence:cl.creditedPence,
+    replacementPence:cl.replacementPence,
+    openPence,
+   };
+  });
+  const originalNetPence=lineBreakdown.reduce((s,l)=>s+l.netPence,0);
+  const creditedPence=lineBreakdown.reduce((s,l)=>s+l.creditedPence,0);
+  const replacementPence=lineBreakdown.reduce((s,l)=>s+l.replacementPence,0);
+  const resolvedPence=creditedPence+replacementPence;
+  const openBalancePence=lineBreakdown.reduce((s,l)=>s+l.openPence,0);
+  return {hasConfirmedClaim:true,originalNetPence,creditedPence,replacementPence,resolvedPence,openBalancePence,lineBreakdown};
+ }
+ const lineBreakdown:ClaimSummaryLine[]=fallbackFollowRows
+  .filter(r=>r.creditEstimatePence>0)
+  .map(r=>({
+   lineId:r.lineId,
+   name:r.orderProductName,
+   reason:r.mismatchReasons.join(' · ')||r.statusLabel,
+   netPence:r.creditEstimatePence,
+   creditedPence:0,
+   replacementPence:0,
+   openPence:r.creditEstimatePence,
+  }));
+ const originalNetPence=lineBreakdown.reduce((s,l)=>s+l.netPence,0);
+ return {
+  hasConfirmedClaim:false,
+  originalNetPence,
+  creditedPence:0,
+  replacementPence:0,
+  resolvedPence:0,
+  openBalancePence:originalNetPence,
+  lineBreakdown,
+ };
+}
+

@@ -1,12 +1,20 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {emailState,sendAndRecordOrderEmail} from '../app/htos/communicationState.ts';
+import {emailActionPresentation,emailState,sendAndRecordOrderEmail} from '../app/htos/communicationState.ts';
 import type {OrderRecord} from '../types.ts';
 const order={status:'PLACED',emailStatus:'SKIPPED',emailRetryCount:2} as OrderRecord;
-test('saved and draft orders are not falsely reported as emailed',()=>{
+test('saved and draft orders are not falsely reported as emailed and failed orders expose Resend labels',()=>{
   assert.equal(emailState(order).label,'Email not sent');
   assert.equal(emailState({...order,status:'DRAFT',emailStatus:'SENT'}).label,'Draft');
   assert.equal(emailState({...order,emailStatus:'SENT'}).label,'Email sent');
+  assert.equal(emailActionPresentation(order).buttonLabel,'Send email');
+  for(const failedStatus of ['FAILED','UNCERTAIN','PARTIAL','OFFLINE_MANUAL'] as const){
+    const copy=emailActionPresentation({...order,emailStatus:failedStatus});
+    assert.equal(copy.isRetry,true);
+    assert.equal(copy.buttonLabel,'Resend email');
+    assert.equal(copy.modalTitle,'Resend order email');
+    assert.equal(copy.confirmLabel,'Confirm & resend email');
+  }
 });
 test('confirmed acceptance clears prior errors and saves its time once',async()=>{
   const patches:Partial<OrderRecord>[]=[];let sends=0;

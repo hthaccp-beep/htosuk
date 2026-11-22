@@ -11,4 +11,4 @@
 @media(max-width:700px){.h-basket-total.compact{font-size:13px}.h-basket-dock .h-minimum-warning{padding:5px 7px;font-size:11px}}
 .h-order-list-status .h-minimum-warning{max-width:230px}
 
-.h-minimum-flag{display:inline-block;max-width:100%;padding:3px 7px;border:1px solid #ddcda3;border-radius:5px;background:#fff7df;color:#71531c;font-size:13px;line-height:1.4;font-weight:500;white-space:normal}
+.h-minimum-flag{display:inline-flex;align-items:center;max-width:100%;padding:3px 8px;border:1px solid #ddcda3;border-radius:5px;background:#fff7df;color:#71531c;font-size:11px;line-height:1.3;font-weight:600;white-space:nowrap}

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {buildSimpleInvoiceTable,computeTableTotalsCheck} from './simple-invoice-table.ts';
+import {buildSimpleInvoiceTable,computeClaimSummaryMetrics,computeTableTotalsCheck} from './simple-invoice-table.ts';
 import {attachInvoiceExtraction} from '../shared/invoice-extraction.ts';
 import {extractionCase,extractionFixture} from './fixtures/invoice-extraction.ts';
 import {sampleReceivedPriceDifference,sampleReviewed} from './fixtures/invoice-workflow.ts';
@@ -195,4 +195,36 @@ test('does not compute bogus cross-unit credit estimates before pack/unit review
  const table=buildSimpleInvoiceTable(attached,catalog);
  assert.equal(table.ordered[0].unitCheckRequired,true);
  assert.equal(table.ordered[0].creditEstimatePence,0);
+});
+
+test('computeClaimSummaryMetrics summarizes estimated and confirmed claim balances accurately',()=>{
+ const base=extractionCase();
+ const est=computeClaimSummaryMetrics(base,[
+  {lineId:base.lines[0].id,orderProductName:base.lines[0].name,statusLabel:'Missing (2)',creditEstimatePence:3600,mismatchReasons:['Missing 2']},
+  {lineId:base.lines[1].id,orderProductName:base.lines[1].name,statusLabel:'Matched',creditEstimatePence:0,mismatchReasons:[]},
+ ]);
+ assert.equal(est.hasConfirmedClaim,false);
+ assert.equal(est.originalNetPence,3600);
+ assert.equal(est.resolvedPence,0);
+ assert.equal(est.openBalancePence,3600);
+ assert.equal(est.lineBreakdown.length,1);
+
+ const confirmed=computeClaimSummaryMetrics({
+  lines:base.lines,
+  claim:{
+   id:'c1',revision:1,state:'SENT',recipient:'a@b.invalid',subject:'s',message:'m',
+   lines:[
+    {lineId:base.lines[0].id,quantity:2,netPence:3800,creditedPence:2000,replacementPence:800,reason:'Missing bags'},
+    {lineId:base.lines[1].id,quantity:1,netPence:2000,creditedPence:2000,replacementPence:0,reason:'Damaged case'},
+   ],
+  },
+ });
+ assert.equal(confirmed.hasConfirmedClaim,true);
+ assert.equal(confirmed.originalNetPence,5800);
+ assert.equal(confirmed.creditedPence,4000);
+ assert.equal(confirmed.replacementPence,800);
+ assert.equal(confirmed.resolvedPence,4800);
+ assert.equal(confirmed.openBalancePence,1000);
+ assert.equal(confirmed.lineBreakdown[0].openPence,1000);
+ assert.equal(confirmed.lineBreakdown[1].openPence,0);
 });

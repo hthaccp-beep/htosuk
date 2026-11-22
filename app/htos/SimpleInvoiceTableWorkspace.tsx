@@ -1,16 +1,18 @@
-import React,{useEffect,useMemo,useState} from 'react';
-import {buildSimpleInvoiceTable,computeTableTotalsCheck,type SimpleIssueTheme,type SimpleOrderedRow,type SimpleTableMark} from '../../shared/simple-invoice-table';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
+import {buildSimpleInvoiceTable,computeClaimSummaryMetrics,computeTableTotalsCheck,type SimpleIssueTheme,type SimpleOrderedRow,type SimpleTableMark} from '../../shared/simple-invoice-table';
 import {caseStatusLabels,invoiceApprovalProblems,outstandingClaim,receiptStatusLabels,type InvoiceCase} from '../../shared/invoice-case';
 import {invoiceExtractionDraft} from '../../shared/invoice-extraction';
 import {invoiceRecordStatus} from '../../shared/invoice-review-status';
 import {canReportLaterDelivery} from '../../shared/later-delivery';
 import {useAppStore} from '../../store';
+import {useCheckWorkflow} from './CheckWorkflow';
 import {CaseDocuments,DocumentUpload,InvoiceField as Field,useInvoiceCase,useInvoiceDraftGuard} from './InvoiceCaseCommon';
 import {InvoiceClaimEmail} from './InvoiceClaimEmail';
 import {InvoiceReadingPanel} from './InvoiceReadingPanel';
 import {useInvoiceUploadPending} from './InvoiceUploadPreview';
 import {LaterDeliveries} from './LaterDeliveries';
 import {Button,Heading,Tag,day,money} from './ui';
+import {Copy,FileText,PanelRightClose,PanelRightOpen,X} from 'lucide-react';
 import './invoice-cases.css';
 
 interface RowEdit {
@@ -19,6 +21,8 @@ interface RowEdit {
  invoiceQty?:string;
  invoicePrice?:string;
 }
+
+type WorkspaceTab='CHECK'|'CREDITS'|'AUDIT';
 
 const SAMPLE_CREDIT_PNG='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
@@ -66,8 +70,19 @@ export function SimpleInvoiceTableWorkspace({
  preview?:boolean;
 }){
  const products=useAppStore(s=>s.products);
+ const request=useCheckWorkflow();
  const {record,setRecord,error:caseError,busy,command,run}=useInvoiceCase(caseId);
  const {uploadPending,uploadBusy,onUploadPending}=useInvoiceUploadPending();
+
+ const [activeTab,setActiveTab]=useState<WorkspaceTab>('CHECK');
+ const [tableFilter,setTableFilter]=useState<'ALL'|'ACTION'>('ALL');
+ const [showDocPane,setShowDocPane]=useState(false);
+ const [selectedDocId,setSelectedDocId]=useState('');
+ const [docPreview,setDocPreview]=useState<{id:string;url:string;name:string;mime:string}|null>(null);
+ const [docLoading,setDocLoading]=useState(false);
+ const [docError,setDocError]=useState('');
+ const [copiedRef,setCopiedRef]=useState(false);
+ const docUrlRef=useRef('');
 
  const [edits,setEdits]=useState<Record<string,RowEdit>>({});
  const [editFigures,setEditFigures]=useState(false);
@@ -149,6 +164,44 @@ export function SimpleInvoiceTableWorkspace({
   // eslint-disable-next-line react-hooks/exhaustive-deps
  },[syncedVersion]);
 
+ const activeDocId=record
+  ? ((selectedDocId&&record.documents.some(d=>d.id===selectedDocId))
+     ? selectedDocId
+     : (invoiceDocId||record.invoiceDocumentId||record.documents[0]?.id||''))
+  : '';
+
+ const requestRef=useRef(request);
+ requestRef.current=request;
+
+ useEffect(()=>{
+  if(!showDocPane||!record?.id||!activeDocId)return;
+  if(docPreview?.id===activeDocId&&!docError)return;
+  let active=true;
+  setDocLoading(true);
+  setDocError('');
+  requestRef.current({action:'invoice-case-document',caseId:record.id,documentId:activeDocId})
+   .then(d=>{
+    if(!active)return;
+    const bytes=Uint8Array.from(atob(d.base64),(c:string)=>c.charCodeAt(0));
+    const url=URL.createObjectURL(new Blob([bytes],{type:d.mime}));
+    if(docUrlRef.current)URL.revokeObjectURL(docUrlRef.current);
+    docUrlRef.current=url;
+    setDocPreview({id:activeDocId,url,name:d.name,mime:d.mime});
+   })
+   .catch(e=>{if(active)setDocError((e as Error).message||'Could not open document preview.');})
+   .finally(()=>{if(active)setDocLoading(false);});
+  return()=>{active=false;};
+  // Re-fetch only when opening the pane or switching the case/active document.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[showDocPane,record?.id,activeDocId]);
+
+ useEffect(()=>()=>{
+  if(docUrlRef.current){
+   URL.revokeObjectURL(docUrlRef.current);
+   docUrlRef.current='';
+  }
+ },[]);
+
  const model=useMemo(()=>record?buildSimpleInvoiceTable(record,products):null,[record,products]);
 
  const effectiveOrdered=useMemo(()=>{
@@ -192,7 +245,14 @@ export function SimpleInvoiceTableWorkspace({
   [effectiveOrdered,effectiveUnmatched,netPence,vatPence,grossPence,adjustmentPence],
  );
 
- if(!record||!model){
+ const claimSummary=useMemo(
+  ()=>record
+   ? computeClaimSummaryMetrics(record,effectiveOrdered.filter(r=>r.mark==='FOLLOW'&&r.creditEstimatePence>0))
+   : null,
+  [record,effectiveOrdered],
+ );
+
+ if(!record||!model||!claimSummary){
   return <>
    <Button variant="secondary" onClick={onClose}>Back to invoice inbox</Button>
    <p role={caseError?'alert':'status'}>{caseError||'Opening invoice review…'}</p>
@@ -204,12 +264,52 @@ export function SimpleInvoiceTableWorkspace({
  const claim=record.claim;
  const hasDraft=Boolean(invoiceExtractionDraft(record));
 
- const followCount=effectiveOrdered.filter(r=>r.mark==='FOLLOW').length+effectiveUnmatched.filter(u=>u.mark==='FOLLOW').length;
+ const followOrderedCount=effectiveOrdered.filter(r=>r.mark==='FOLLOW').length;
+ const followUnmatchedCount=effectiveUnmatched.filter(u=>u.mark==='FOLLOW').length;
+ const followCount=followOrderedCount+followUnmatchedCount;
  const doneCount=effectiveOrdered.filter(r=>r.mark==='DONE').length+effectiveUnmatched.filter(u=>u.mark==='DONE').length;
  const claimableRows=effectiveOrdered.filter(r=>r.mark==='FOLLOW'&&r.creditEstimatePence>0);
  const noteOnlyFollowRows=effectiveOrdered.filter(r=>r.mark==='FOLLOW'&&r.creditEstimatePence===0);
  const estimatedFollowPence=claimableRows.reduce((s,r)=>s+r.creditEstimatePence,0);
  const approvalProblems=invoiceApprovalProblems(record);
+ const openClaimPence=outstandingClaim(record);
+ const hasReplacements=canReportLaterDelivery(record)||!!record.laterDeliveryIds?.length;
+
+ const visibleOrdered=tableFilter==='ACTION'
+  ? effectiveOrdered.filter(r=>r.mark==='FOLLOW')
+  : effectiveOrdered;
+ const visibleUnmatched=tableFilter==='ACTION'
+  ? effectiveUnmatched.filter(u=>u.mark==='FOLLOW'||!u.savedDecision)
+  : effectiveUnmatched;
+
+ const primaryDoc=record.documents.find(d=>d.id===activeDocId)||record.documents[0];
+
+ const jumpToProblem=(problem:string)=>{
+  const lower=problem.toLowerCase();
+  if(lower.includes('credit')||lower.includes('claim')||lower.includes('replacement')||lower.includes('later delivery')){
+   setActiveTab('CREDITS');
+   return;
+  }
+  setActiveTab('CHECK');
+  if(lower.includes('item')||lower.includes('unit')||lower.includes('price basis')){
+   setTableFilter('ALL');
+   document.getElementById('ic-comparison-table')?.scrollIntoView({behavior:'smooth',block:'start'});
+  }else{
+   document.getElementById('ic-totals-card')?.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+ };
+
+ const copyRefToClipboard=async()=>{
+  const value=invoiceRef.trim()||record.invoiceReference;
+  if(!value)return;
+  try{
+   await navigator.clipboard?.writeText(value);
+   setCopiedRef(true);
+   window.setTimeout(()=>setCopiedRef(false),1800);
+  }catch{
+   setNotice(`Invoice ref: ${value}`);
+  }
+ };
 
  const act=async(kind:string,payload:any={})=>{
   if(uploadPending){
@@ -302,10 +402,10 @@ export function SimpleInvoiceTableWorkspace({
   }
   try{
    if(!matchingVerified||!totalsVerified){
-    throw new Error('Tick both verification check boxes (Products/units checked and Totals agree) before preparing a claim.');
+    throw new Error('Tick both verification check boxes on 1. Invoice Check before preparing a claim.');
    }
    if(effectiveUnmatched.some(u=>!u.savedDecision)){
-    throw new Error('Confirm each extra item at the bottom of the table (Match supplier item or Leave unmatched) first.');
+    throw new Error('Confirm each extra item in the comparison table (Match supplier item or Leave unmatched) first.');
    }
    if(claimableRows.length===0){
     throw new Error('Mark at least one item with a price, missing or damage difference as Follow before preparing a credit claim.');
@@ -485,525 +585,837 @@ export function SimpleInvoiceTableWorkspace({
  };
 
  const alertMessage=localError||caseError;
+ const netStatusText=totalsCheck.linesPlusAdjustmentMatchesNet
+  ? 'Matches Invoice Net'
+  : totalsCheck.differenceToNetPence!=null
+   ? `${money(totalsCheck.differenceToNetPence/100)} difference`
+   : 'Awaiting totals';
 
- return <div className="ic-accounts">
-  <div className="ic-toolbar">
-   <Button variant="secondary" onClick={closeWorkspace}>← Invoice inbox</Button>
-   <Tag tone={statusInfo.tone}>{statusInfo.label}</Tag>
-   <Button variant="quiet" onClick={switchToClassic}>Classic check view</Button>
+ const tabCreditsSubtitle=openClaimPence>0
+  ? `${money(openClaimPence/100)} outstanding`
+  : claim
+   ? `Claim ${claim.state.toLowerCase()}`
+   : claimableRows.length>0
+    ? `${claimableRows.length} to claim`
+    : 'No claim';
+
+ return <div className="ic-accounts ic-simple-workspace">
+  <div className="ic-toolbar ic-simple-topbar">
+   <div className="ic-simple-topbar-left">
+    <Button variant="secondary" onClick={closeWorkspace}>← Invoice inbox</Button>
+    <Tag tone={statusInfo.tone}>{statusInfo.label}</Tag>
+   </div>
+   <div className="ic-simple-topbar-right">
+    {record.documents.length>0&&(
+     <Button
+      variant={showDocPane?'primary':'secondary'}
+      aria-pressed={showDocPane}
+      onClick={()=>setShowDocPane(v=>!v)}>
+      {showDocPane?<PanelRightClose size={16}/>:<PanelRightOpen size={16}/>}
+      {showDocPane?'Hide document':`Show ${primaryDoc?.name||'document'}`}
+     </Button>
+    )}
+    <Button variant="quiet" onClick={switchToClassic}>Classic check view</Button>
+   </div>
   </div>
 
   <div className="ic-simple-header">
-   <Heading eyebrow="ACCOUNTS REVIEW" title={record.invoiceReference||'Check invoice'}>
+   <Heading eyebrow="ACCOUNTS REVIEW" title={record.invoiceReference||`Order ${record.orderIds[0]||record.id}`}>
     {record.branchName} · {record.supplierName}
    </Heading>
+   <p className="ic-simple-report-meta">
+    <strong>Staff report:</strong>{' '}
+    {record.receipt.statuses.length?record.receipt.statuses.map(s=>receiptStatusLabels[s]).join(' · '):'Delivery report pending'}
+    {record.receipt.notes&&<span> — {record.receipt.notes}</span>}
+   </p>
   </div>
 
-  <section className="h-panel ic-simple-context" aria-label="Delivery report and invoice documents">
-   <div className="ic-simple-context-top">
-    <div className="ic-simple-context-main">
-     <div className="ic-simple-report-line">
-      <strong>Staff report:</strong>{' '}
-      {record.receipt.statuses.length?record.receipt.statuses.map(s=>receiptStatusLabels[s]).join(' · '):'Delivery report pending'}
-      {record.receipt.notes&&<span> — {record.receipt.notes}</span>}
-     </div>
-     <CaseDocuments record={record}/>
-    </div>
-    <div className="ic-simple-context-actions">
-     <label className="ic-simple-toggle-label">
-      <input type="checkbox" checked={editFigures} disabled={locked} onChange={e=>setEditFigures(e.target.checked)}/>
-      Edit billed figures
-     </label>
-     {hasDraft&&!locked&&<Button variant="secondary" busy={busy} disabled={hasUnsaved} onClick={()=>void act('use-extraction')}>Use AI draft figures</Button>}
-    </div>
+  {record.status==='APPROVED'?(
+   <div className="ic-simple-checks-strip is-ready" role="status">
+    <span><strong>Invoice approved and locked</strong>{record.approvedBy?` · ${record.approvedBy}`:''}{record.approvedAt?` on ${day(record.approvedAt)}`:''}. Does not mark it paid or close any goods collection.</span>
    </div>
-
-   <div className="ic-simple-context-tools">
-    {!locked&&!claim&&(
-     <details>
-      <summary>Add another invoice or delivery scan</summary>
-      <div style={{paddingTop:6}}>
-       <DocumentUpload compact onPendingChange={onUploadPending} record={record} run={run} kind="INVOICE" label="Add a later invoice"/>
-      </div>
-     </details>
-    )}
-    <details>
-     <summary>AI document reading &amp; photo preparation{hasDraft?' (draft ready)':''}</summary>
-     <div style={{paddingTop:6}}>
-      <InvoiceReadingPanel
-       onDirty={setReadingDirty}
-       record={record}
-       busy={busy}
-       dirty={uploadPending||dirty||creditDirty||emailDirty}
-       locked={locked}
-       preview={preview}
-       run={run}
-       act={act}
-       onChanged={next=>{setRecord(next);syncFromRecord(next,true);setNotice('Reading saved as a draft — review highlighted rows in the table.');}}
-      />
-     </div>
-    </details>
+  ):(
+   <div className={`ic-simple-checks-strip ${approvalProblems.length===0?'is-ready':''}`}>
+    <div className="ic-simple-checks-list">
+     <strong className="ic-simple-checks-title">
+      {approvalProblems.length>0
+       ? `${approvalProblems.length} remaining check${approvalProblems.length===1?'':'s'} before approval:`
+       : 'All approval checks complete — ready to approve invoice'}
+     </strong>
+     {approvalProblems.map((problem,idx)=>(
+      <button
+       key={problem}
+       type="button"
+       className="ic-simple-check-chip"
+       onClick={()=>jumpToProblem(problem)}>
+       <span className="ic-simple-check-num">{idx+1}</span>
+       <span>{problem}</span>
+      </button>
+     ))}
+    </div>
+    <Button
+     busy={busy}
+     disabled={uploadPending||readingDirty||creditDirty||emailDirty||(!dirty&&approvalProblems.length>0)}
+     onClick={()=>void handleApproveInvoice()}>
+     Approve invoice
+    </Button>
    </div>
-  </section>
+  )}
 
   {alertMessage&&<p role="alert" className="h-notice error">{alertMessage}</p>}
   {notice&&<p role="status" className="h-notice success">{notice}</p>}
 
-  <section className="h-panel ic-simple-shell" aria-label="Order vs Receive invoice check table">
-   <div className="ic-simple-shell-head">
-    <div className="ic-simple-shell-title">
-     <h2>Order vs Receive comparison</h2>
-     <div className="ic-simple-key">
-      <span className="ic-simple-key-item"><span aria-hidden="true" className="ic-simple-swatch price"/>Price differs</span>
-      <span className="ic-simple-key-item"><span aria-hidden="true" className="ic-simple-swatch detail"/>ID / Name / Unit differs</span>
-      <span className="ic-simple-key-item"><span aria-hidden="true" className="ic-simple-swatch qty"/>Missing / Damage</span>
-      <span className="ic-simple-key-item"><span aria-hidden="true" className="ic-simple-swatch extra"/>Extra item</span>
-      <span className="ic-simple-key-item"><span aria-hidden="true" className="ic-simple-swatch matched"/>Matched / Done</span>
-     </div>
-    </div>
-    <div className="ic-simple-metrics">
-     {doneCount} Done <span>·</span> {followCount} Follow <span>·</span> {effectiveUnmatched.length} Unmatched <span>·</span> Est. claim <strong>{money(estimatedFollowPence/100)}</strong>
-    </div>
-   </div>
-
-   <div className="ic-simple-table-wrap">
-    <table className="ic-simple-table">
-     <thead>
-      <tr>
-       <th colSpan={5} className="ic-simple-group-order">Order (Saved HTOS order)</th>
-       <th colSpan={5} className="ic-simple-group-receive">Receive (Delivery &amp; Supplier invoice)</th>
-       <th colSpan={2} className="ic-simple-group-review">Review &amp; Action</th>
-      </tr>
-      <tr className="ic-simple-subhead">
-       <th className="ic-simple-ctr" style={{width:28}}>No</th>
-       <th style={{textAlign:'left',width:58}}>ID</th>
-       <th style={{textAlign:'left',minWidth:108}}>Product</th>
-       <th className="ic-simple-num" style={{width:58}}>Price</th>
-       <th className="ic-simple-num ic-simple-div-r" style={{width:68}}>Qty</th>
-       <th className="ic-simple-ctr" style={{width:28}}>No</th>
-       <th style={{textAlign:'left',width:58}}>ID</th>
-       <th style={{textAlign:'left',minWidth:112}}>Product</th>
-       <th className="ic-simple-num" style={{width:62}}>Price</th>
-       <th className="ic-simple-num ic-simple-div-r" style={{width:78}}>Qty</th>
-       <th style={{textAlign:'left',minWidth:132}}>Status</th>
-       <th className="ic-simple-ctr" style={{minWidth:102}}>Mark</th>
-      </tr>
-     </thead>
-     <tbody>
-      {effectiveOrdered.map(r=>{
-       const {rowClass,statusColor}=rowVisual(r);
-       const billedDiff=r.receiveBilledQty!=null&&r.receiveQty!=null&&r.receiveBilledQty!==r.receiveQty;
-       const priceCellClass=r.priceDiffers?'ic-simple-cell-price':'';
-       const idCellClass=r.codeDiffers?'ic-simple-cell-detail':'';
-       const nameCellClass=r.nameDiffers?'ic-simple-cell-detail':'';
-       const qtyCellClass=r.qtyDiffers?'ic-simple-cell-qty':r.unitCheckRequired?'ic-simple-cell-detail':'';
-
-       return <tr key={r.id} className={rowClass}>
-        <td className="ic-simple-ctr ic-simple-cell-r" style={{color:'var(--muted,#728078)'}}>{r.orderNo}</td>
-        <td className="ic-simple-cell-r" style={{fontWeight:600}}>{r.orderProductId}</td>
-        <td className="ic-simple-cell-r"><strong>{r.orderProductName}</strong></td>
-        <td className="ic-simple-num ic-simple-cell-r">{money(r.orderPrice)}</td>
-        <td className="ic-simple-num ic-simple-div-r">{r.orderQty} {r.orderUnit}</td>
-
-        <td className="ic-simple-ctr ic-simple-cell-r" style={{color:'var(--muted,#728078)'}}>{r.receiveNo}</td>
-        <td className={`ic-simple-cell-r ${idCellClass}`}>{r.receiveProductId}</td>
-        <td className={`ic-simple-cell-r ${nameCellClass}`}>{r.receiveProductName}</td>
-        <td className={`ic-simple-num ic-simple-cell-r ${priceCellClass}`}>
-         {editFigures&&!locked?(
-          <input
-           aria-label={`Invoice unit price for ${r.orderProductName}`}
-           type="number"
-           min="0"
-           step="0.01"
-           value={r.editedPrice??(r.receivePrice!=null?String(r.receivePrice):'')}
-           onChange={e=>{setDirty(true);setEdits(prev=>({...prev,[r.id]:{...prev[r.id],invoicePrice:e.target.value}}));}}
-           style={{width:66,minHeight:32,padding:'4px 6px',textAlign:'right',fontSize:12}}
-          />
-         ):money(r.receivePrice)}
-        </td>
-        <td className={`ic-simple-num ic-simple-div-r ${qtyCellClass}`}>
-         {editFigures&&!locked?(
-          <div style={{display:'grid',gap:2,justifyItems:'end'}}>
-           <input
-            aria-label={`Invoice billed quantity for ${r.orderProductName}`}
-            type="number"
-            min="0"
-            step="1"
-            value={r.editedQty??(r.receiveBilledQty!=null?String(r.receiveBilledQty):'')}
-            onChange={e=>{setDirty(true);setEdits(prev=>({...prev,[r.id]:{...prev[r.id],invoiceQty:e.target.value}}));}}
-            style={{width:62,minHeight:32,padding:'4px 6px',textAlign:'right',fontSize:12}}
-           />
-           <small>Deliv: {r.receiveQty??'—'}</small>
-          </div>
-         ):(
-          <>
-           <div>{r.receiveQty!=null?`${r.receiveQty} ${r.orderUnit}`:(r.receiveBilledQty!=null?`${r.receiveBilledQty} ${r.receiveUnit}`:'—')}</div>
-           {billedDiff&&<div style={{fontSize:11,color:'var(--muted,#728078)',fontWeight:500}}>Inv: {r.receiveBilledQty} {r.receiveUnit}</div>}
-          </>
-         )}
-        </td>
-
-        <td className="ic-simple-cell-r">
-         <select
-          className="ic-simple-status-select"
-          aria-label={`Status for ${r.orderProductName}`}
-          disabled={locked}
-          value={r.status}
-          onChange={e=>{
-           setDirty(true);
-           const val=e.target.value;
-           setEdits(prev=>({...prev,[r.id]:{...prev[r.id],status:val,mark:(val==='Matched'||val==='AI matched (confirm)')?'DONE':'FOLLOW'}}));
-          }}
-          style={{color:statusColor}}>
-          {![r.status,'Matched','AI matched (confirm)','Damage','Missing','Price','ID / Name','Out of stock','Hold'].includes(r.status)&&<option value={r.status}>{r.status}</option>}
-          {Array.from(new Set([r.statusLabel,'Matched','AI matched (confirm)','Damage','Missing','Price','ID / Name','Out of stock','Hold'])).map(opt=><option key={opt} value={opt}>{opt}</option>)}
-         </select>
-         {r.mismatchReasons.length>0&&<div className="ic-simple-reason" style={{color:statusColor}}>{r.mismatchReasons.join(' · ')}</div>}
-        </td>
-
-        <td className="ic-simple-ctr">
-         <div className="ic-simple-mark">
-          {(['DONE','FOLLOW'] as const).map(choice=>(
-           <button
-            key={choice}
-            type="button"
-            className={choice==='DONE'?'done':'follow'}
-            disabled={locked}
-            aria-pressed={r.mark===choice}
-            onClick={()=>{setDirty(true);setEdits(prev=>({...prev,[r.id]:{...prev[r.id],mark:choice}}));}}>
-            {choice==='DONE'?'Done':'Follow'}
-           </button>
-          ))}
-         </div>
-        </td>
-       </tr>;
-      })}
-
-      <tr className="ic-simple-extra-band">
-       <td colSpan={5} className="ic-simple-div-r" style={{fontWeight:600,color:'var(--muted,#728078)'}}>
-        Match to an existing item from {record.supplierName} or leave unmatched
-       </td>
-       <td colSpan={7} style={{fontWeight:700,color:'#674188'}}>
-        Extra / unmatched items from invoice (not on order: {effectiveUnmatched.length})
-       </td>
-      </tr>
-
-      {effectiveUnmatched.length===0?<tr>
-       <td colSpan={12} style={{padding:'12px 10px',color:'var(--muted,#728078)',textAlign:'center'}}>
-        No extra or unmatched items on this invoice.
-       </td>
-      </tr>:effectiveUnmatched.map(u=>(
-       <tr key={u.id} className={u.matchedOpt&&u.mark==='DONE'?'ic-simple-row-matched':'ic-simple-row-extra'}>
-        <td colSpan={5} className="ic-simple-div-r">
-         <div className="ic-simple-extra-controls">
-          <select
-           aria-label={`Match supplier item for ${u.receiveProductName}`}
-           disabled={locked||busy||!!claim||!hasDraft}
-           value={u.selectedProductId}
-           onChange={e=>{
-            const pid=e.target.value;
-            void handleConfirmExtraRow(u,pid?'SUPPLIER_ITEM':'RESET',pid||undefined);
-           }}>
-           <option value="">{u.savedDecision?'Reset extra review…':'Match supplier item…'}</option>
-           {model.supplierOptions.map(opt=><option key={opt.id} value={opt.id}>{opt.code} · {opt.name}{opt.price!=null?` (${money(opt.price)})`:''}</option>)}
-          </select>
-          <button
-           type="button"
-           disabled={locked||busy||!!claim||!hasDraft}
-           className={`ic-simple-unmatch-btn ${u.leaveUnmatched?'active':''}`}
-           onClick={()=>void handleConfirmExtraRow(u,u.leaveUnmatched?'RESET':'LEAVE_UNMATCHED')}>
-           {u.leaveUnmatched?'Left unmatched ✓':'Leave unmatched'}
-          </button>
-         </div>
-        </td>
-        <td className="ic-simple-ctr ic-simple-cell-r" style={{color:'#674188',fontWeight:600}}>{u.receiveNo}</td>
-        <td className="ic-simple-cell-r" style={{color:'#674188',fontWeight:700}}>{u.receiveProductId}</td>
-        <td className="ic-simple-cell-r" style={{color:'#4a2c66'}}><strong>{u.receiveProductName}</strong></td>
-        <td className="ic-simple-num ic-simple-cell-r">{money(u.receivePrice)}</td>
-        <td className="ic-simple-num ic-simple-div-r">{u.receiveQty??'—'} {u.receiveUnit}</td>
-        <td className="ic-simple-cell-r" style={{fontWeight:600,color:u.matchedOpt?'#286246':'#674188'}}>
-         {u.status}
-        </td>
-        <td className="ic-simple-ctr">
-         <div className="ic-simple-mark">
-          {(['DONE','FOLLOW'] as const).map(choice=>(
-           <button
-            key={choice}
-            type="button"
-            className={choice==='DONE'?'done':'follow-extra'}
-            disabled={locked}
-            aria-pressed={u.mark===choice}
-            onClick={()=>{setDirty(true);setEdits(prev=>({...prev,[u.id]:{...prev[u.id],mark:choice}}));}}>
-            {choice==='DONE'?'Done':'Follow'}
-           </button>
-          ))}
-         </div>
-        </td>
-       </tr>
-      ))}
-     </tbody>
-    </table>
-   </div>
-  </section>
-
-  <div className="ic-simple-step4">
-   <section aria-label="Totals and invoice approval" className="h-panel ic-simple-card">
-    <div className="h-panel-head">
-     <div>
-      <h2>Step 4a · Totals &amp; Invoice Check</h2>
-      <p>Verify printed reference, date, totals and VAT before approval.</p>
-     </div>
-     {hasDraft&&!locked&&<Button variant="quiet" busy={busy} disabled={hasUnsaved} onClick={()=>void act('use-extraction')}>Use AI draft figures</Button>}
+  <div className={`ic-simple-split ${showDocPane?'has-doc':''}`}>
+   <div className="ic-simple-main">
+    <div className="ic-simple-tabs" role="tablist" aria-label="Invoice workspace sections">
+     <button
+      type="button"
+      role="tab"
+      id="ic-tab-check"
+      aria-selected={activeTab==='CHECK'}
+      aria-controls="ic-panel-check"
+      className={`ic-simple-tab ${activeTab==='CHECK'?'active':''}`}
+      onClick={()=>setActiveTab('CHECK')}>
+      <span className="ic-simple-tab-label">1. Invoice Check</span>
+      <span className={`ic-simple-tab-meta ${followCount>0?'warn':'ok'}`}>
+       {followCount>0?`${followCount} action needed`:'All matched'}
+      </span>
+     </button>
+     <button
+      type="button"
+      role="tab"
+      id="ic-tab-credits"
+      aria-selected={activeTab==='CREDITS'}
+      aria-controls="ic-panel-credits"
+      className={`ic-simple-tab ${activeTab==='CREDITS'?'active':''}`}
+      onClick={()=>setActiveTab('CREDITS')}>
+      <span className="ic-simple-tab-label">2. Credits &amp; Replacements</span>
+      <span className={`ic-simple-tab-meta ${openClaimPence>0?'warn':''}`}>
+       {tabCreditsSubtitle}
+      </span>
+     </button>
+     <button
+      type="button"
+      role="tab"
+      id="ic-tab-audit"
+      aria-selected={activeTab==='AUDIT'}
+      aria-controls="ic-panel-audit"
+      className={`ic-simple-tab ${activeTab==='AUDIT'?'active':''}`}
+      onClick={()=>setActiveTab('AUDIT')}>
+      <span className="ic-simple-tab-label">3. Claim &amp; Audit Summary</span>
+      <span className="ic-simple-tab-meta">
+       {record.audit.length} {record.audit.length===1?'log':'logs'}
+      </span>
+     </button>
     </div>
 
-    <div className="ic-simple-card-body">
-     <fieldset className="ic-fieldset" disabled={busy||locked}>
-      <div className="ic-simple-meta-grid">
-       <Field label="Invoice reference"><input value={invoiceRef} onChange={e=>{setInvoiceRef(e.target.value);setDirty(true);}}/></Field>
-       <Field label="Invoice date"><input type="date" value={invoiceDate} onChange={e=>{setInvoiceDate(e.target.value);setDirty(true);}}/></Field>
-       <Field label="Original invoice">
-        <select value={invoiceDocId} onChange={e=>{setInvoiceDocId(e.target.value);setDirty(true);}}>
-         <option value="">Choose document</option>
-         {record.documents.filter(d=>d.kind==='INVOICE').map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
-        </select>
-       </Field>
-       <Field label="Invoice net (£)"><input type="number" step="0.01" value={netInput} onChange={e=>{setNetInput(e.target.value);setTotalsVerified(false);setDirty(true);}}/></Field>
-       <Field label="VAT (£)"><input type="number" step="0.01" value={vatInput} onChange={e=>{setVatInput(e.target.value);setTotalsVerified(false);setDirty(true);}}/></Field>
-       <Field label="Invoice gross (£)"><input type="number" step="0.01" value={grossInput} onChange={e=>{setGrossInput(e.target.value);setTotalsVerified(false);setDirty(true);}}/></Field>
-       <Field label="Charges / discounts (£)"><input type="number" step="0.01" value={adjInput} onChange={e=>{setAdjInput(e.target.value);setTotalsVerified(false);setDirty(true);}}/></Field>
-      </div>
-
-      <div className="ic-simple-totals-box" style={{margin:'10px 0'}}>
-       <div>
-        Ordered lines billed: <strong>{money(totalsCheck.orderedLineBilledSumPence/100)}</strong>
-        {' · '}Extra unmatched: <strong>{money(totalsCheck.unmatchedExtraSumPence/100)}</strong>
-        {' · '}Net check:{' '}
-        <strong style={{color:totalsCheck.linesPlusAdjustmentMatchesNet?'#286246':'#9a662a'}}>
-         {totalsCheck.linesPlusAdjustmentMatchesNet?'Matches Invoice Net':totalsCheck.differenceToNetPence!=null?`${money(totalsCheck.differenceToNetPence/100)} difference`:'Check figures'}
-        </strong>
-       </div>
-       {!totalsCheck.linesPlusAdjustmentMatchesNet&&totalsCheck.differenceToNetPence===totalsCheck.unmatchedExtraSumPence&&totalsCheck.unmatchedExtraSumPence>0&&!locked&&(
-        <Button variant="secondary" onClick={()=>{setAdjInput((totalsCheck.unmatchedExtraSumPence/100).toFixed(2));setDirty(true);}}>
-         Allocate extra {money(totalsCheck.unmatchedExtraSumPence/100)} to charges
-        </Button>
-       )}
-      </div>
-
-      <div style={{display:'grid',gap:6}}>
-       <label className="h-check">
-        <input type="checkbox" checked={matchingVerified} onChange={e=>{setMatchingVerified(e.target.checked);setDirty(true);}}/>
-        Supplier, branch, products, packs/units and extra items checked against original document.
-       </label>
-       <label className="h-check">
-        <input type="checkbox" checked={totalsVerified} onChange={e=>{setTotalsVerified(e.target.checked);setDirty(true);}}/>
-        Line totals, charges/discounts and VAT agree with printed invoice totals.
-       </label>
-      </div>
-
-      <Field label="Accounts notes / other issue resolution">
-       <textarea rows={2} value={notes} placeholder="Optional notes or resolution for Other delivery issues" onChange={e=>{setNotes(e.target.value);setDirty(true);}}/>
-      </Field>
-     </fieldset>
-
-     {record.status==='HOLD'&&(
-      <div className="ic-evidence">
-       <strong>On hold:</strong> {record.holdReason} · {record.holdOwner}{record.holdUntil?' · '+day(record.holdUntil):''}
-       {resumeOpen?(
-        <div style={{marginTop:8,display:'grid',gap:8}}>
-         <Field label="Reason for returning to review">
-          <textarea rows={2} maxLength={2000} value={resumeReason} onChange={e=>setResumeReason(e.target.value)} placeholder="What new information allows review to continue?"/>
-         </Field>
-         <div className="ic-row">
-          <Button variant="secondary" disabled={busy} onClick={()=>{setResumeOpen(false);setResumeReason('');}}>Cancel return</Button>
-          <Button busy={busy} disabled={dirty||!resumeReason.trim()} onClick={async()=>{if(await act('resume',{reason:resumeReason})){setResumeOpen(false);setResumeReason('');}}}>Confirm return to review</Button>
-         </div>
+    {activeTab==='CHECK'&&(
+     <div id="ic-panel-check" role="tabpanel" aria-labelledby="ic-tab-check" className="ic-simple-tabpanel">
+      <section id="ic-totals-card" className="h-panel ic-simple-card">
+       <div className="h-panel-head ic-simple-card-head">
+        <div>
+         <h2>Invoice Header &amp; Totals</h2>
+         <p>Check supplier reference, date, net, VAT and gross against order lines automatically.</p>
         </div>
-       ):(
-        <div style={{marginTop:8}}>
-         <Button variant="secondary" disabled={hasUnsaved} busy={busy} onClick={()=>setResumeOpen(true)}>Return to review</Button>
-        </div>
-       )}
-      </div>
-     )}
-
-     {hold&&(
-      <div className="ic-evidence" style={{display:'grid',gap:8}}>
-       <strong>Hold for information</strong>
-       <Field label="Information needed"><textarea rows={2} value={holdReason} onChange={e=>setHoldReason(e.target.value)}/></Field>
-       <div className="h-form-grid">
-        <Field label="Person responsible"><input value={holdOwner} onChange={e=>setHoldOwner(e.target.value)}/></Field>
-        <Field label="Follow-up date (optional)"><input type="date" value={holdUntil} onChange={e=>setHoldUntil(e.target.value)}/></Field>
-       </div>
-       <div className="ic-row">
-        <Button variant="secondary" onClick={()=>{setHold(false);setHoldReason('');setHoldOwner('');setHoldUntil('');}}>Cancel</Button>
-        <Button busy={busy} onClick={async()=>{if(await act('hold',{reason:holdReason,owner:holdOwner,until:holdUntil})){setHold(false);setHoldReason('');setHoldOwner('');setHoldUntil('');}}}>Save hold</Button>
-       </div>
-      </div>
-     )}
-
-     {record.status!=='APPROVED'&&approvalProblems.length>0&&(
-      <details style={{fontSize:12,color:'var(--muted,#728078)',background:'#f8faf3',border:'1px solid var(--line,#e4e8df)',borderRadius:9,padding:'8px 12px'}}>
-       <summary style={{cursor:'pointer',fontWeight:600,color:'#213b35'}}>{approvalProblems.length} remaining check{approvalProblems.length===1?'':'s'} before invoice approval</summary>
-       <ul style={{margin:'6px 0 0',paddingLeft:18}}>
-        {approvalProblems.map(p=><li key={p}>{p}</li>)}
-       </ul>
-      </details>
-     )}
-
-     {record.status==='APPROVED'?(
-      <p className="h-notice success" style={{margin:0}}>Invoice approved and locked. This does not mark it paid or close any outstanding goods collection.</p>
-     ):(
-      <div className="ic-simple-card-foot">
-       <Button variant="secondary" busy={busy} disabled={locked} onClick={()=>void handleSaveReview()}>Save review</Button>
-       <Button busy={busy} disabled={uploadPending||readingDirty||creditDirty||emailDirty||(!dirty&&approvalProblems.length>0)} onClick={()=>void handleApproveInvoice()}>Approve invoice</Button>
-       <Button variant="quiet" busy={busy} disabled={dirty} onClick={()=>setHold(v=>!v)}>Hold</Button>
-      </div>
-     )}
-    </div>
-   </section>
-
-   <section aria-label="Claim and credit note follow-up" className="h-panel ic-simple-card">
-    <div className="h-panel-head">
-     <div>
-      <h2>Step 4b · Claim &amp; Credit Note Follow-up</h2>
-      <p>Send credit claims and reconcile supplier credit notes.</p>
-     </div>
-     {claim&&<Tag tone={claim.state==='SENT'?'green':'amber'}>Claim {claim.state.toLowerCase()}</Tag>}
-    </div>
-
-    <div className="ic-simple-card-body">
-     {!claim&&(
-      <>
-       <div style={{fontSize:13,color:'#213b35',lineHeight:1.55}}>
-        <div><strong>{claimableRows.length}</strong> claimable item{claimableRows.length===1?'':'s'} marked Follow · Estimated claim: <strong>{money(estimatedFollowPence/100)}</strong> net</div>
-        {claimableRows.length>0&&<ul style={{margin:'8px 0 0',paddingLeft:18,fontSize:12,color:'var(--muted,#728078)'}}>
-         {claimableRows.map(r=><li key={r.id}>{r.orderProductName}: {money(r.creditEstimatePence/100)} ({r.status})</li>)}
-        </ul>}
-        {noteOnlyFollowRows.length>0&&<div style={{marginTop:8,fontSize:12,color:'#264673'}}>
-         Detail notes (£0 financial claim, saved to review notes): {noteOnlyFollowRows.map(r=>`${r.orderProductName} (${r.status})`).join(', ')}
-        </div>}
-       </div>
-       <div className="ic-simple-card-foot">
-        <Button busy={busy} disabled={record.status==='APPROVED'||uploadPending||claimableRows.length===0} onClick={()=>void handlePrepareAndApproveClaim()}>
-         1. Prepare &amp; approve claim ({money(estimatedFollowPence/100)})
-        </Button>
-       </div>
-      </>
-     )}
-
-     {claim&&claim.state!=='SENT'&&(
-      <>
-       <div style={{fontSize:13,color:'var(--forest,#173a31)',fontVariantNumeric:'tabular-nums'}}>
-        <strong>Claim {claim.state.toLowerCase()}</strong> · {money(claim.lines.reduce((s,l)=>s+l.netPence,0)/100)} net
-       </div>
-       <ul style={{margin:0,paddingLeft:18,fontSize:12,color:'var(--muted,#728078)'}}>
-        {claim.lines.map(l=><li key={l.lineId}>{record.lines.find(i=>i.id===l.lineId)?.name}: {money(l.netPence/100)} — {l.reason}</li>)}
-       </ul>
-       {claim.state==='DRAFT'&&(
-        <Button busy={busy} disabled={dirty} onClick={()=>void act('approve-claim')}>Approve claim</Button>
-       )}
-       <InvoiceClaimEmail
-        record={record}
-        recipient={recipient}
-        message={message}
-        setRecipient={setRecipient}
-        setMessage={setMessage}
-        disabled={uploadPending||dirty||readingDirty||creditDirty}
-        busy={busy}
-        preview={preview}
-        run={run}
-        onDirty={setEmailDirty}
-        onChanged={r=>{
-         setRecord(r);
-         syncFromRecord(r,false);
-         setNotice(r.claim?.state==='SENT'?'Claim sent — record the supplier credit note below once received.':'Email progress saved.');
-        }}
-       />
-      </>
-     )}
-
-     {claim?.state==='SENT'&&(
-      <>
-       <div style={{fontSize:13,color:'#213b35',fontVariantNumeric:'tabular-nums'}}>
-        <strong>Claim sent</strong>{claim.recipient?` (${claim.recipient})`:''} · Remaining open balance: <strong>{money(outstandingClaim(record)/100)}</strong>
-       </div>
-
-       {record.credits.map(n=>(
-        <article className="ic-issue" key={n.id} style={{margin:'4px 0',padding:12}}>
-         <div className="ic-row">
-          <strong>{n.reference} · {money(n.grossPence/100)} gross</strong>
-          <Tag tone={n.status==='APPROVED'?'green':'amber'}>{n.status==='APPROVED'?'Credit approved':'Awaiting credit approval'}</Tag>
-         </div>
-         <CaseDocuments record={record} ids={[n.documentId]}/>
-         {n.status==='DRAFT'&&<Button busy={busy} onClick={()=>void act('approve-credit',{creditId:n.id})}>Approve this credit note</Button>}
-        </article>
-       ))}
-
-       {outstandingClaim(record)>0&&!record.credits.some(n=>n.status==='DRAFT')&&record.status!=='APPROVED'&&(
-        <div className="ic-simple-credit-box">
-         <DocumentUpload
-          compact
-          onPendingChange={onUploadPending}
-          record={record}
-          run={run}
-          kind="CREDIT"
-          label="Upload original credit note"
-          onUploaded={id=>{setCreditDoc(id);setCreditDirty(true);}}
-         />
-         <div className="ic-simple-meta-grid">
-          <Field label="Credit note reference"><input value={creditRef} onChange={e=>{setCreditRef(e.target.value);setCreditDirty(true);}}/></Field>
-          <Field label="Original invoice ref"><input value={creditInvoice} onChange={e=>{setCreditInvoice(e.target.value);setCreditDirty(true);}}/></Field>
-          <Field label="Credit document">
-           <select value={creditDoc} onChange={e=>{setCreditDoc(e.target.value);setCreditDirty(true);}}>
-            <option value="">{preview?'Auto sample PDF/PNG on save':'Select document'}</option>
-            {record.documents.filter(d=>d.kind==='CREDIT').map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
-           </select>
-          </Field>
-          <Field label="Credit net (£)"><input type="number" min="0" step="0.01" value={creditNetInput} onChange={e=>{setCreditNetInput(e.target.value);setCreditDirty(true);}}/></Field>
-          <Field label="Credit VAT (£)"><input type="number" min="0" step="0.01" value={creditVatInput} onChange={e=>{setCreditVatInput(e.target.value);setCreditDirty(true);}}/></Field>
-          <Field label="Credit gross (£)"><input type="number" min="0" step="0.01" value={creditGrossInput} onChange={e=>{setCreditGrossInput(e.target.value);setCreditDirty(true);}}/></Field>
-         </div>
-         <label className="h-check">
-          <input type="checkbox" checked={creditVerified} onChange={e=>{setCreditVerified(e.target.checked);setCreditDirty(true);}}/>
-          Credit note matches supplier amount, invoice ref and VAT.
-         </label>
-         <div className="ic-simple-card-foot">
-          <Button busy={busy} disabled={uploadPending} onClick={()=>void handleRecordCredit()}>
-           Record &amp; approve credit note
+        <div className="ic-simple-head-controls">
+         <span className={`ic-simple-math-status ${totalsCheck.linesPlusAdjustmentMatchesNet?'ok':'warn'}`}>
+          {netStatusText}
+         </span>
+         {hasDraft&&!locked&&(
+          <Button
+           variant="secondary"
+           busy={busy}
+           disabled={hasUnsaved}
+           title={hasUnsaved?'Save or discard unsaved edits before loading AI draft':'Load reference, date, totals and line figures from the AI draft'}
+           onClick={()=>void act('use-extraction')}>
+           Fill from AI draft
           </Button>
+         )}
+        </div>
+       </div>
+
+       <div className="ic-simple-card-body">
+        <fieldset className="ic-fieldset" disabled={busy||locked}>
+         <div className="ic-simple-meta-stack">
+          <div className="ic-simple-meta-row ic-simple-meta-row-doc">
+           <Field label="Invoice reference"><input value={invoiceRef} placeholder="e.g. INV-90412" onChange={e=>{setInvoiceRef(e.target.value);setDirty(true);}}/></Field>
+           <Field label="Invoice date"><input type="date" value={invoiceDate} onChange={e=>{setInvoiceDate(e.target.value);setDirty(true);}}/></Field>
+           <Field label="Original invoice">
+            <select value={invoiceDocId} onChange={e=>{setInvoiceDocId(e.target.value);setDirty(true);}}>
+             <option value="">Choose document</option>
+             {record.documents.filter(d=>d.kind==='INVOICE').map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+           </Field>
+          </div>
+          <div className="ic-simple-meta-row ic-simple-meta-row-money">
+           <Field label="Invoice net (£)"><input type="number" step="0.01" value={netInput} onChange={e=>{setNetInput(e.target.value);setTotalsVerified(false);setDirty(true);}}/></Field>
+           <Field label="Charges / discounts (£)"><input type="number" step="0.01" value={adjInput} onChange={e=>{setAdjInput(e.target.value);setTotalsVerified(false);setDirty(true);}}/></Field>
+           <Field label="VAT (£)"><input type="number" step="0.01" value={vatInput} onChange={e=>{setVatInput(e.target.value);setTotalsVerified(false);setDirty(true);}}/></Field>
+           <Field label="Invoice gross (£)"><input type="number" step="0.01" value={grossInput} onChange={e=>{setGrossInput(e.target.value);setTotalsVerified(false);setDirty(true);}}/></Field>
+          </div>
+         </div>
+
+         <div className="ic-simple-totals-box">
+          <div>
+           Ordered lines billed: <strong>{money(totalsCheck.orderedLineBilledSumPence/100)}</strong>
+           {' · '}Extra unmatched: <strong>{money(totalsCheck.unmatchedExtraSumPence/100)}</strong>
+           {' · '}Net check:{' '}
+           <strong style={{color:totalsCheck.linesPlusAdjustmentMatchesNet?'#286246':'#9a662a'}}>
+            {netStatusText}
+           </strong>
+          </div>
+          {!totalsCheck.linesPlusAdjustmentMatchesNet&&totalsCheck.differenceToNetPence===totalsCheck.unmatchedExtraSumPence&&totalsCheck.unmatchedExtraSumPence>0&&!locked&&(
+           <Button variant="secondary" onClick={()=>{setAdjInput((totalsCheck.unmatchedExtraSumPence/100).toFixed(2));setDirty(true);}}>
+            Allocate extra {money(totalsCheck.unmatchedExtraSumPence/100)} to charges
+           </Button>
+          )}
+         </div>
+        </fieldset>
+
+        <div className="ic-simple-context-tools">
+         <details>
+          <summary>AI document reading &amp; photo preparation{hasDraft?' (draft ready)':''}</summary>
+          <div style={{paddingTop:6}}>
+           <InvoiceReadingPanel
+            onDirty={setReadingDirty}
+            record={record}
+            busy={busy}
+            dirty={uploadPending||dirty||creditDirty||emailDirty}
+            locked={locked}
+            preview={preview}
+            run={run}
+            act={act}
+            onChanged={next=>{setRecord(next);syncFromRecord(next,true);setNotice('Reading saved as a draft — review highlighted rows in the table.');}}
+           />
+          </div>
+         </details>
+         {!locked&&!claim&&(
+          <details>
+           <summary>Add another invoice or delivery scan</summary>
+           <div style={{paddingTop:6}}>
+            <DocumentUpload compact onPendingChange={onUploadPending} record={record} run={run} kind="INVOICE" label="Add a later invoice"/>
+           </div>
+          </details>
+         )}
+         {!showDocPane&&record.documents.length>0&&(
+          <div className="ic-simple-doc-inline-links">
+           <span className="ic-muted">Uploaded documents:</span>
+           <CaseDocuments record={record}/>
+          </div>
+         )}
+        </div>
+       </div>
+      </section>
+
+      <section id="ic-comparison-table" className="h-panel ic-simple-shell" aria-label="Order vs Receive invoice check table">
+       <div className="ic-simple-shell-head">
+        <div className="ic-simple-shell-title">
+         <div className="ic-simple-shell-title-row">
+          <h2>Order vs Receive comparison</h2>
+          <div className="ic-simple-filter-group" role="group" aria-label="Filter items">
+           <button
+            type="button"
+            className={tableFilter==='ALL'?'active':''}
+            onClick={()=>setTableFilter('ALL')}>
+            All items ({effectiveOrdered.length})
+           </button>
+           <button
+            type="button"
+            className={tableFilter==='ACTION'?'active':''}
+            onClick={()=>setTableFilter('ACTION')}>
+            Action needed ({followOrderedCount})
+           </button>
+          </div>
+         </div>
+         <div className="ic-simple-key">
+          <span className="ic-simple-key-item"><span aria-hidden="true" className="ic-simple-swatch price"/>Price differs</span>
+          <span className="ic-simple-key-item"><span aria-hidden="true" className="ic-simple-swatch detail"/>ID / Name / Unit differs</span>
+          <span className="ic-simple-key-item"><span aria-hidden="true" className="ic-simple-swatch qty"/>Missing / Damage</span>
+          <span className="ic-simple-key-item"><span aria-hidden="true" className="ic-simple-swatch extra"/>Extra item</span>
+          <span className="ic-simple-key-item"><span aria-hidden="true" className="ic-simple-swatch matched"/>Matched / Done</span>
          </div>
         </div>
-       )}
+        <div className="ic-simple-shell-right">
+         <label className="ic-simple-toggle-label">
+          <input type="checkbox" checked={editFigures} disabled={locked} onChange={e=>setEditFigures(e.target.checked)}/>
+          Edit billed figures
+         </label>
+         <div className="ic-simple-metrics">
+          {doneCount} Done <span>·</span> {followCount} Follow <span>·</span> {effectiveUnmatched.length} Unmatched <span>·</span> Est. claim <strong>{money(estimatedFollowPence/100)}</strong>
+         </div>
+        </div>
+       </div>
 
-       {outstandingClaim(record)===0&&!record.credits.some(n=>n.status==='DRAFT')&&(
-        <p className="h-notice success" style={{margin:0}}>Claim fully resolved. Confirm totals on the left and click Approve invoice when ready.</p>
+       <div className="ic-simple-table-wrap">
+        <table className="ic-simple-table">
+         <thead>
+          <tr>
+           <th colSpan={5} className="ic-simple-group-order">Order (Saved HTOS order)</th>
+           <th colSpan={5} className="ic-simple-group-receive">Receive (Delivery &amp; Supplier invoice)</th>
+           <th colSpan={2} className="ic-simple-group-review">Review &amp; Action</th>
+          </tr>
+          <tr className="ic-simple-subhead">
+           <th className="ic-simple-ctr" style={{width:28}}>No</th>
+           <th style={{textAlign:'left',width:58}}>ID</th>
+           <th style={{textAlign:'left',minWidth:108}}>Product</th>
+           <th className="ic-simple-num" style={{width:58}}>Price</th>
+           <th className="ic-simple-num ic-simple-div-r" style={{width:68}}>Qty</th>
+           <th className="ic-simple-ctr" style={{width:28}}>No</th>
+           <th style={{textAlign:'left',width:58}}>ID</th>
+           <th style={{textAlign:'left',minWidth:112}}>Product</th>
+           <th className="ic-simple-num" style={{width:62}}>Price</th>
+           <th className="ic-simple-num ic-simple-div-r" style={{width:78}}>Qty</th>
+           <th style={{textAlign:'left',minWidth:132}}>Status</th>
+           <th className="ic-simple-ctr" style={{minWidth:102}}>Mark</th>
+          </tr>
+         </thead>
+         <tbody>
+          {visibleOrdered.length===0?(
+           <tr>
+            <td colSpan={12} style={{padding:'16px 12px',textAlign:'center',color:'var(--muted,#728078)'}}>
+             No ordered items need action in this view.{' '}
+             <button type="button" className="h-text-link" onClick={()=>setTableFilter('ALL')}>Show all {effectiveOrdered.length} items →</button>
+            </td>
+           </tr>
+          ):visibleOrdered.map(r=>{
+           const {rowClass,statusColor}=rowVisual(r);
+           const billedDiff=r.receiveBilledQty!=null&&r.receiveQty!=null&&r.receiveBilledQty!==r.receiveQty;
+           const priceCellClass=r.priceDiffers?'ic-simple-cell-price':'';
+           const idCellClass=r.codeDiffers?'ic-simple-cell-detail':'';
+           const nameCellClass=r.nameDiffers?'ic-simple-cell-detail':'';
+           const qtyCellClass=r.qtyDiffers?'ic-simple-cell-qty':r.unitCheckRequired?'ic-simple-cell-detail':'';
+
+           return <tr key={r.id} className={rowClass}>
+            <td className="ic-simple-ctr ic-simple-cell-r" style={{color:'var(--muted,#728078)'}}>{r.orderNo}</td>
+            <td className="ic-simple-cell-r" style={{fontWeight:600}}>{r.orderProductId}</td>
+            <td className="ic-simple-cell-r"><strong>{r.orderProductName}</strong></td>
+            <td className="ic-simple-num ic-simple-cell-r">{money(r.orderPrice)}</td>
+            <td className="ic-simple-num ic-simple-div-r">{r.orderQty} {r.orderUnit}</td>
+
+            <td className="ic-simple-ctr ic-simple-cell-r" style={{color:'var(--muted,#728078)'}}>{r.receiveNo}</td>
+            <td className={`ic-simple-cell-r ${idCellClass}`}>{r.receiveProductId}</td>
+            <td className={`ic-simple-cell-r ${nameCellClass}`}>{r.receiveProductName}</td>
+            <td className={`ic-simple-num ic-simple-cell-r ${priceCellClass}`}>
+             {editFigures&&!locked?(
+              <input
+               aria-label={`Invoice unit price for ${r.orderProductName}`}
+               type="number"
+               min="0"
+               step="0.01"
+               value={r.editedPrice??(r.receivePrice!=null?String(r.receivePrice):'')}
+               onChange={e=>{setDirty(true);setEdits(prev=>({...prev,[r.id]:{...prev[r.id],invoicePrice:e.target.value}}));}}
+               style={{width:66,minHeight:32,padding:'4px 6px',textAlign:'right',fontSize:12}}
+              />
+             ):money(r.receivePrice)}
+            </td>
+            <td className={`ic-simple-num ic-simple-div-r ${qtyCellClass}`}>
+             {editFigures&&!locked?(
+              <div style={{display:'grid',gap:2,justifyItems:'end'}}>
+               <input
+                aria-label={`Invoice billed quantity for ${r.orderProductName}`}
+                type="number"
+                min="0"
+                step="1"
+                value={r.editedQty??(r.receiveBilledQty!=null?String(r.receiveBilledQty):'')}
+                onChange={e=>{setDirty(true);setEdits(prev=>({...prev,[r.id]:{...prev[r.id],invoiceQty:e.target.value}}));}}
+                style={{width:62,minHeight:32,padding:'4px 6px',textAlign:'right',fontSize:12}}
+               />
+               <small>Deliv: {r.receiveQty??'—'}</small>
+              </div>
+             ):(
+              <>
+               <div>{r.receiveQty!=null?`${r.receiveQty} ${r.orderUnit}`:(r.receiveBilledQty!=null?`${r.receiveBilledQty} ${r.receiveUnit}`:'—')}</div>
+               {billedDiff&&<div style={{fontSize:11,color:'var(--muted,#728078)',fontWeight:500}}>Inv: {r.receiveBilledQty} {r.receiveUnit}</div>}
+              </>
+             )}
+            </td>
+
+            <td className="ic-simple-cell-r">
+             <select
+              className="ic-simple-status-select"
+              aria-label={`Status for ${r.orderProductName}`}
+              disabled={locked}
+              value={r.status}
+              onChange={e=>{
+               setDirty(true);
+               const val=e.target.value;
+               setEdits(prev=>({...prev,[r.id]:{...prev[r.id],status:val,mark:(val==='Matched'||val==='AI matched (confirm)')?'DONE':'FOLLOW'}}));
+              }}
+              style={{color:statusColor}}>
+              {![r.status,'Matched','AI matched (confirm)','Damage','Missing','Price','ID / Name','Out of stock','Hold'].includes(r.status)&&<option value={r.status}>{r.status}</option>}
+              {Array.from(new Set([r.statusLabel,'Matched','AI matched (confirm)','Damage','Missing','Price','ID / Name','Out of stock','Hold'])).map(opt=><option key={opt} value={opt}>{opt}</option>)}
+             </select>
+             {r.mismatchReasons.length>0&&<div className="ic-simple-reason" style={{color:statusColor}}>{r.mismatchReasons.join(' · ')}</div>}
+            </td>
+
+            <td className="ic-simple-ctr">
+             <div className="ic-simple-mark">
+              {(['DONE','FOLLOW'] as const).map(choice=>(
+               <button
+                key={choice}
+                type="button"
+                className={choice==='DONE'?'done':'follow'}
+                disabled={locked}
+                aria-pressed={r.mark===choice}
+                onClick={()=>{setDirty(true);setEdits(prev=>({...prev,[r.id]:{...prev[r.id],mark:choice}}));}}>
+                {choice==='DONE'?'Done':'Follow'}
+               </button>
+              ))}
+             </div>
+            </td>
+           </tr>;
+          })}
+
+          {(tableFilter==='ALL'||visibleUnmatched.length>0)&&(
+           <tr className="ic-simple-extra-band">
+            <td colSpan={5} className="ic-simple-div-r" style={{fontWeight:600,color:'var(--muted,#728078)'}}>
+             Match to an existing item from {record.supplierName} or leave unmatched
+            </td>
+            <td colSpan={7} style={{fontWeight:700,color:'#674188'}}>
+             Extra / unmatched items from invoice (not on order: {effectiveUnmatched.length})
+            </td>
+           </tr>
+          )}
+
+          {tableFilter==='ALL'&&effectiveUnmatched.length===0&&(
+           <tr>
+            <td colSpan={12} style={{padding:'12px 10px',color:'var(--muted,#728078)',textAlign:'center'}}>
+             No extra or unmatched items on this invoice.
+            </td>
+           </tr>
+          )}
+
+          {visibleUnmatched.map(u=>(
+           <tr key={u.id} className={u.matchedOpt&&u.mark==='DONE'?'ic-simple-row-matched':'ic-simple-row-extra'}>
+            <td colSpan={5} className="ic-simple-div-r">
+             <div className="ic-simple-extra-controls">
+              <select
+               aria-label={`Match supplier item for ${u.receiveProductName}`}
+               disabled={locked||busy||!!claim||!hasDraft}
+               value={u.selectedProductId}
+               onChange={e=>{
+                const pid=e.target.value;
+                void handleConfirmExtraRow(u,pid?'SUPPLIER_ITEM':'RESET',pid||undefined);
+               }}>
+               <option value="">{u.savedDecision?'Reset extra review…':'Match supplier item…'}</option>
+               {model.supplierOptions.map(opt=><option key={opt.id} value={opt.id}>{opt.code} · {opt.name}{opt.price!=null?` (${money(opt.price)})`:''}</option>)}
+              </select>
+              <button
+               type="button"
+               disabled={locked||busy||!!claim||!hasDraft}
+               className={`ic-simple-unmatch-btn ${u.leaveUnmatched?'active':''}`}
+               onClick={()=>void handleConfirmExtraRow(u,u.leaveUnmatched?'RESET':'LEAVE_UNMATCHED')}>
+               {u.leaveUnmatched?'Left unmatched ✓':'Leave unmatched'}
+              </button>
+             </div>
+            </td>
+            <td className="ic-simple-ctr ic-simple-cell-r" style={{color:'#674188',fontWeight:600}}>{u.receiveNo}</td>
+            <td className="ic-simple-cell-r" style={{color:'#674188',fontWeight:700}}>{u.receiveProductId}</td>
+            <td className="ic-simple-cell-r" style={{color:'#4a2c66'}}><strong>{u.receiveProductName}</strong></td>
+            <td className="ic-simple-num ic-simple-cell-r">{money(u.receivePrice)}</td>
+            <td className="ic-simple-num ic-simple-div-r">{u.receiveQty??'—'} {u.receiveUnit}</td>
+            <td className="ic-simple-cell-r" style={{fontWeight:600,color:u.matchedOpt?'#286246':'#674188'}}>
+             {u.status}
+            </td>
+            <td className="ic-simple-ctr">
+             <div className="ic-simple-mark">
+              {(['DONE','FOLLOW'] as const).map(choice=>(
+               <button
+                key={choice}
+                type="button"
+                className={choice==='DONE'?'done':'follow-extra'}
+                disabled={locked}
+                aria-pressed={u.mark===choice}
+                onClick={()=>{setDirty(true);setEdits(prev=>({...prev,[u.id]:{...prev[u.id],mark:choice}}));}}>
+                {choice==='DONE'?'Done':'Follow'}
+               </button>
+              ))}
+             </div>
+            </td>
+           </tr>
+          ))}
+         </tbody>
+        </table>
+       </div>
+
+       {tableFilter==='ACTION'&&effectiveOrdered.length>visibleOrdered.length&&(
+        <div className="ic-simple-table-foot">
+         <span>Showing {visibleOrdered.length} of {effectiveOrdered.length} ordered items needing action</span>
+         <button type="button" className="h-text-link" onClick={()=>setTableFilter('ALL')}>Show all {effectiveOrdered.length} items →</button>
+        </div>
        )}
-      </>
+      </section>
+
+      <section aria-label="Sign-off and review actions" className="h-panel ic-simple-card">
+       <div className="ic-simple-card-body">
+        <fieldset className="ic-fieldset" disabled={busy||locked} style={{display:'grid',gap:12}}>
+         <div style={{display:'grid',gap:8}}>
+          <label className="h-check">
+           <input type="checkbox" checked={matchingVerified} onChange={e=>{setMatchingVerified(e.target.checked);setDirty(true);}}/>
+           Supplier, branch, products, packs/units and extra items checked against original document.
+          </label>
+          <label className="h-check">
+           <input type="checkbox" checked={totalsVerified} onChange={e=>{setTotalsVerified(e.target.checked);setDirty(true);}}/>
+           Line totals, charges/discounts and VAT agree with printed invoice totals.
+          </label>
+         </div>
+
+         <Field label="Accounts notes / other issue resolution">
+          <textarea rows={2} value={notes} placeholder="Optional notes or resolution for Other delivery issues" onChange={e=>{setNotes(e.target.value);setDirty(true);}}/>
+         </Field>
+        </fieldset>
+
+        {record.status==='HOLD'&&(
+         <div className="ic-evidence">
+          <strong>On hold:</strong> {record.holdReason} · {record.holdOwner}{record.holdUntil?' · '+day(record.holdUntil):''}
+          {resumeOpen?(
+           <div style={{marginTop:8,display:'grid',gap:8}}>
+            <Field label="Reason for returning to review">
+             <textarea rows={2} maxLength={2000} value={resumeReason} onChange={e=>setResumeReason(e.target.value)} placeholder="What new information allows review to continue?"/>
+            </Field>
+            <div className="ic-row">
+             <Button variant="secondary" disabled={busy} onClick={()=>{setResumeOpen(false);setResumeReason('');}}>Cancel return</Button>
+             <Button busy={busy} disabled={dirty||!resumeReason.trim()} onClick={async()=>{if(await act('resume',{reason:resumeReason})){setResumeOpen(false);setResumeReason('');}}}>Confirm return to review</Button>
+            </div>
+           </div>
+          ):(
+           <div style={{marginTop:8}}>
+            <Button variant="secondary" disabled={hasUnsaved} busy={busy} onClick={()=>setResumeOpen(true)}>Return to review</Button>
+           </div>
+          )}
+         </div>
+        )}
+
+        {hold&&(
+         <div className="ic-evidence" style={{display:'grid',gap:8}}>
+          <strong>Hold for information</strong>
+          <Field label="Information needed"><textarea rows={2} value={holdReason} onChange={e=>setHoldReason(e.target.value)}/></Field>
+          <div className="h-form-grid">
+           <Field label="Person responsible"><input value={holdOwner} onChange={e=>setHoldOwner(e.target.value)}/></Field>
+           <Field label="Follow-up date (optional)"><input type="date" value={holdUntil} onChange={e=>setHoldUntil(e.target.value)}/></Field>
+          </div>
+          <div className="ic-row">
+           <Button variant="secondary" onClick={()=>{setHold(false);setHoldReason('');setHoldOwner('');setHoldUntil('');}}>Cancel</Button>
+           <Button busy={busy} onClick={async()=>{if(await act('hold',{reason:holdReason,owner:holdOwner,until:holdUntil})){setHold(false);setHoldReason('');setHoldOwner('');setHoldUntil('');}}}>Save hold</Button>
+          </div>
+         </div>
+        )}
+
+        {record.status!=='APPROVED'&&(
+         <div className="ic-simple-card-foot">
+          <Button variant="secondary" busy={busy} disabled={locked} onClick={()=>void handleSaveReview()}>Save review</Button>
+          <Button busy={busy} disabled={uploadPending||readingDirty||creditDirty||emailDirty||(!dirty&&approvalProblems.length>0)} onClick={()=>void handleApproveInvoice()}>Approve invoice</Button>
+          {claimableRows.length>0&&!claim&&(
+           <Button variant="secondary" onClick={()=>setActiveTab('CREDITS')}>
+            Go to Credits &amp; Replacements ({money(estimatedFollowPence/100)}) →
+           </Button>
+          )}
+          <Button variant="quiet" busy={busy} disabled={dirty} onClick={()=>setHold(v=>!v)}>Hold</Button>
+         </div>
+        )}
+       </div>
+      </section>
+     </div>
+    )}
+
+    {activeTab==='CREDITS'&&(
+     <div id="ic-panel-credits" role="tabpanel" aria-labelledby="ic-tab-credits" className="ic-simple-tabpanel">
+      {hasReplacements&&(
+       <section id="ic-follow-up" className="h-panel ic-simple-card">
+        <div className="h-panel-head">
+         <div>
+          <h2>Replacements &amp; Later Deliveries</h2>
+          <p>Approve replacement receipts and record supplier billing decisions before invoice sign-off.</p>
+         </div>
+         {record.laterReceipts?.some(r=>r.status==='PENDING')&&<Tag tone="amber">Awaiting review</Tag>}
+        </div>
+        <div className="ic-simple-card-body">
+         <LaterDeliveries
+          record={record}
+          accounts
+          disabled={hasUnsaved||busy}
+          onChanged={async()=>{
+           const result=await run({action:'invoice-case-get'});
+           if(result?.record)syncFromRecord(result.record,false);
+          }}
+         />
+        </div>
+       </section>
+      )}
+
+      <section aria-label="Claim and credit note follow-up" className="h-panel ic-simple-card">
+       <div className="h-panel-head">
+        <div>
+         <h2>Claim &amp; Credit Note Follow-up</h2>
+         <p>Prepare claims for marked differences, email the supplier, and reconcile supplier credit notes.</p>
+        </div>
+        {claim&&<Tag tone={claim.state==='SENT'?'green':'amber'}>Claim {claim.state.toLowerCase()}</Tag>}
+       </div>
+
+       <div className="ic-simple-card-body">
+        {!claim&&(
+         <>
+          <div style={{fontSize:13,color:'#213b35',lineHeight:1.55}}>
+           <div><strong>{claimableRows.length}</strong> claimable item{claimableRows.length===1?'':'s'} marked Follow · Estimated claim: <strong>{money(estimatedFollowPence/100)}</strong> net</div>
+           {claimableRows.length>0?(
+            <ul style={{margin:'8px 0 0',paddingLeft:18,fontSize:12,color:'var(--muted,#728078)'}}>
+             {claimableRows.map(r=><li key={r.id}>{r.orderProductName}: {money(r.creditEstimatePence/100)} ({r.status})</li>)}
+            </ul>
+           ):(
+            <p className="h-muted" style={{margin:'8px 0 0'}}>
+             No claimable discrepancies marked Follow yet.{' '}
+             <button type="button" className="h-text-link" onClick={()=>setActiveTab('CHECK')}>Review items in 1. Invoice Check →</button>
+            </p>
+           )}
+           {noteOnlyFollowRows.length>0&&(
+            <div style={{marginTop:8,fontSize:12,color:'#264673'}}>
+             Detail notes (£0 financial claim, saved to review notes): {noteOnlyFollowRows.map(r=>`${r.orderProductName} (${r.status})`).join(', ')}
+            </div>
+           )}
+          </div>
+          <div className="ic-simple-card-foot">
+           <Button busy={busy} disabled={record.status==='APPROVED'||uploadPending||claimableRows.length===0} onClick={()=>void handlePrepareAndApproveClaim()}>
+            1. Prepare &amp; approve claim ({money(estimatedFollowPence/100)})
+           </Button>
+          </div>
+         </>
+        )}
+
+        {claim&&claim.state!=='SENT'&&(
+         <>
+          <div style={{fontSize:13,color:'var(--forest,#173a31)',fontVariantNumeric:'tabular-nums'}}>
+           <strong>Claim {claim.state.toLowerCase()}</strong> · {money(claim.lines.reduce((s,l)=>s+l.netPence,0)/100)} net
+          </div>
+          <ul style={{margin:0,paddingLeft:18,fontSize:12,color:'var(--muted,#728078)'}}>
+           {claim.lines.map(l=><li key={l.lineId}>{record.lines.find(i=>i.id===l.lineId)?.name}: {money(l.netPence/100)} — {l.reason}</li>)}
+          </ul>
+          {claim.state==='DRAFT'&&(
+           <Button busy={busy} disabled={dirty} onClick={()=>void act('approve-claim')}>Approve claim</Button>
+          )}
+          <InvoiceClaimEmail
+           record={record}
+           recipient={recipient}
+           message={message}
+           setRecipient={setRecipient}
+           setMessage={setMessage}
+           disabled={uploadPending||dirty||readingDirty||creditDirty}
+           busy={busy}
+           preview={preview}
+           run={run}
+           onDirty={setEmailDirty}
+           onChanged={r=>{
+            setRecord(r);
+            syncFromRecord(r,false);
+            setNotice(r.claim?.state==='SENT'?'Claim sent — record the supplier credit note below once received.':'Email progress saved.');
+           }}
+          />
+         </>
+        )}
+
+        {claim?.state==='SENT'&&(
+         <>
+          <div style={{fontSize:13,color:'#213b35',fontVariantNumeric:'tabular-nums'}}>
+           <strong>Claim sent</strong>{claim.recipient?` (${claim.recipient})`:''} · Remaining open balance: <strong>{money(openClaimPence/100)}</strong>
+          </div>
+
+          {record.credits.map(n=>(
+           <article className="ic-issue" key={n.id} style={{margin:'4px 0',padding:12}}>
+            <div className="ic-row">
+             <strong>{n.reference} · {money(n.grossPence/100)} gross</strong>
+             <Tag tone={n.status==='APPROVED'?'green':'amber'}>{n.status==='APPROVED'?'Credit approved':'Awaiting credit approval'}</Tag>
+            </div>
+            <CaseDocuments record={record} ids={[n.documentId]}/>
+            {n.status==='DRAFT'&&<Button busy={busy} onClick={()=>void act('approve-credit',{creditId:n.id})}>Approve this credit note</Button>}
+           </article>
+          ))}
+
+          {openClaimPence>0&&!record.credits.some(n=>n.status==='DRAFT')&&record.status!=='APPROVED'&&(
+           <div className="ic-simple-credit-box">
+            <DocumentUpload
+             compact
+             onPendingChange={onUploadPending}
+             record={record}
+             run={run}
+             kind="CREDIT"
+             label="Upload original credit note"
+             onUploaded={id=>{setCreditDoc(id);setCreditDirty(true);}}
+            />
+            <div className="ic-simple-meta-stack">
+             <div className="ic-simple-meta-row ic-simple-meta-row-doc">
+              <Field label="Credit note reference"><input value={creditRef} onChange={e=>{setCreditRef(e.target.value);setCreditDirty(true);}}/></Field>
+              <Field label="Original invoice ref"><input value={creditInvoice} onChange={e=>{setCreditInvoice(e.target.value);setCreditDirty(true);}}/></Field>
+              <Field label="Credit document">
+               <select value={creditDoc} onChange={e=>{setCreditDoc(e.target.value);setCreditDirty(true);}}>
+                <option value="">{preview?'Auto sample PDF/PNG on save':'Select document'}</option>
+                {record.documents.filter(d=>d.kind==='CREDIT').map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+               </select>
+              </Field>
+             </div>
+             <div className="ic-simple-meta-row ic-simple-meta-row-doc">
+              <Field label="Credit net (£)"><input type="number" min="0" step="0.01" value={creditNetInput} onChange={e=>{setCreditNetInput(e.target.value);setCreditDirty(true);}}/></Field>
+              <Field label="Credit VAT (£)"><input type="number" min="0" step="0.01" value={creditVatInput} onChange={e=>{setCreditVatInput(e.target.value);setCreditDirty(true);}}/></Field>
+              <Field label="Credit gross (£)"><input type="number" min="0" step="0.01" value={creditGrossInput} onChange={e=>{setCreditGrossInput(e.target.value);setCreditDirty(true);}}/></Field>
+             </div>
+            </div>
+            <label className="h-check">
+             <input type="checkbox" checked={creditVerified} onChange={e=>{setCreditVerified(e.target.checked);setCreditDirty(true);}}/>
+             Credit note matches supplier amount, invoice ref and VAT.
+            </label>
+            <div className="ic-simple-card-foot">
+             <Button busy={busy} disabled={uploadPending} onClick={()=>void handleRecordCredit()}>
+              Record &amp; approve credit note
+             </Button>
+            </div>
+           </div>
+          )}
+
+          {openClaimPence===0&&!record.credits.some(n=>n.status==='DRAFT')&&(
+           <p className="h-notice success" style={{margin:0}}>Claim fully resolved. Confirm totals on 1. Invoice Check and click Approve invoice when ready.</p>
+          )}
+         </>
+        )}
+       </div>
+      </section>
+     </div>
+    )}
+
+    {activeTab==='AUDIT'&&(
+     <div id="ic-panel-audit" role="tabpanel" aria-labelledby="ic-tab-audit" className="ic-simple-tabpanel">
+      <div className="ic-simple-kpi-grid" aria-label="Claim balance summary">
+       <div className="ic-simple-kpi">
+        <span>{claimSummary.hasConfirmedClaim?'Original Claim Net':'Estimated Claim Net'}</span>
+        <strong>{money(claimSummary.originalNetPence/100)}</strong>
+        <small>{claimSummary.hasConfirmedClaim?`${claimSummary.lineBreakdown.length} claimed line(s)`:claimSummary.lineBreakdown.length?'Pending claim confirmation':'No financial discrepancy'}</small>
+       </div>
+       <div className="ic-simple-kpi">
+        <span>Resolved (Replaced / Credited)</span>
+        <strong style={{color:'#286246'}}>{money(claimSummary.resolvedPence/100)}</strong>
+        <small>Credited {money(claimSummary.creditedPence/100)} · Replaced {money(claimSummary.replacementPence/100)}</small>
+       </div>
+       <div className="ic-simple-kpi">
+        <span>Remaining Open Balance</span>
+        <strong style={{color:claimSummary.openBalancePence>0?'#9a662a':'#286246'}}>{money(claimSummary.openBalancePence/100)}</strong>
+        <small>{claimSummary.openBalancePence>0?'Awaiting credit note or replacement':claimSummary.hasConfirmedClaim?'Claim balanced & settled':'Nothing open'}</small>
+       </div>
+      </div>
+
+      {claimSummary.lineBreakdown.length>0&&(
+       <section className="h-panel ic-simple-card">
+        <div className="h-panel-head">
+         <div>
+          <h2>Claim Balance Breakdown</h2>
+          <p>Itemised discrepancies, credits received and remaining supplier balance.</p>
+         </div>
+        </div>
+        <div className="ic-simple-table-wrap">
+         <table className="h-table">
+          <thead>
+           <tr>
+            <th>Item</th>
+            <th>Reason</th>
+            <th className="number">Claimed Net</th>
+            <th className="number">Credited</th>
+            <th className="number">Replaced</th>
+            <th className="number">Open Balance</th>
+           </tr>
+          </thead>
+          <tbody>
+           {claimSummary.lineBreakdown.map(line=>(
+            <tr key={line.lineId}>
+             <td><strong>{line.name}</strong></td>
+             <td>{line.reason}</td>
+             <td className="number">{money(line.netPence/100)}</td>
+             <td className="number">{money(line.creditedPence/100)}</td>
+             <td className="number">{money(line.replacementPence/100)}</td>
+             <td className="number"><strong>{money(line.openPence/100)}</strong></td>
+            </tr>
+           ))}
+          </tbody>
+         </table>
+        </div>
+       </section>
+      )}
+
+      <section className="h-panel ic-simple-card">
+       <div className="h-panel-head">
+        <div>
+         <h2>Review &amp; Credit Audit History</h2>
+         <p>Chronological record of uploads, verification saves, claims, credits and replacements.</p>
+        </div>
+       </div>
+       <div className="ic-simple-card-body">
+        {record.audit.length===0?(
+         <p className="h-muted" style={{margin:0}}>No audit actions recorded yet for this invoice.</p>
+        ):(
+         <ol className="ic-simple-audit-list">
+          {record.audit.map((a,i)=>(
+           <li key={i}>
+            <div className="ic-simple-audit-head">
+             <strong>{a.action.replaceAll('-',' ')}</strong>
+             <span>{day(a.at)} · {a.by}</span>
+            </div>
+            {a.details&&<p>{a.details}</p>}
+           </li>
+          ))}
+         </ol>
+        )}
+       </div>
+      </section>
+     </div>
+    )}
+   </div>
+
+   {showDocPane&&(
+    <aside className="ic-simple-doc-pane" aria-label="Invoice document preview">
+     <div className="ic-simple-doc-head">
+      <div className="ic-simple-doc-title">
+       <FileText size={16} aria-hidden="true"/>
+       <strong>{primaryDoc?.name||'Uploaded document'}</strong>
+      </div>
+      <div className="ic-simple-doc-actions">
+       {(invoiceRef.trim()||record.invoiceReference)&&(
+        <button type="button" className="ic-simple-doc-btn" onClick={()=>void copyRefToClipboard()}>
+         <Copy size={13} aria-hidden="true"/>
+         {copiedRef?'Copied':'Copy ref'}
+        </button>
+       )}
+       <button type="button" className="ic-simple-doc-close" aria-label="Close document preview" onClick={()=>setShowDocPane(false)}>
+        <X size={16}/>
+       </button>
+      </div>
+     </div>
+
+     {record.documents.length>1&&(
+      <div className="ic-simple-doc-switcher" role="group" aria-label="Switch document">
+       {record.documents.map(doc=>(
+        <button
+         key={doc.id}
+         type="button"
+         className={doc.id===activeDocId?'active':''}
+         onClick={()=>setSelectedDocId(doc.id)}>
+         {doc.name}
+        </button>
+       ))}
+      </div>
      )}
-    </div>
-   </section>
+
+     <div className="ic-simple-doc-body">
+      {docLoading&&<p role="status" className="h-muted" style={{padding:16}}>Loading document…</p>}
+      {docError&&<p role="alert" className="h-notice error" style={{margin:12}}>{docError}</p>}
+      {!docLoading&&!docError&&docPreview&&(
+       docPreview.mime==='application/pdf'
+        ? <iframe title={docPreview.name} src={docPreview.url} className="ic-simple-doc-frame"/>
+        : <img alt={docPreview.name} src={docPreview.url} className="ic-simple-doc-img" referrerPolicy="no-referrer"/>
+      )}
+     </div>
+
+     {docPreview&&(
+      <div className="ic-simple-doc-foot">
+       <a className="h-text-link" href={docPreview.url} download={docPreview.name}>Download original ({docPreview.name})</a>
+      </div>
+     )}
+    </aside>
+   )}
   </div>
-
-  {(canReportLaterDelivery(record)||!!record.laterDeliveryIds?.length)&&(
-   <details id="ic-follow-up" tabIndex={-1} className="ic-section ic-account-replacements">
-    <summary>Replacements &amp; later deliveries{record.laterReceipts?.some(r=>r.status==='PENDING')?' — awaiting review':''}</summary>
-    <LaterDeliveries
-     record={record}
-     accounts
-     disabled={hasUnsaved||busy}
-     onChanged={async()=>{
-      const result=await run({action:'invoice-case-get'});
-      if(result?.record)syncFromRecord(result.record,false);
-     }}
-    />
-   </details>
-  )}
-
-  <details className="ic-section ic-audit">
-   <summary>Review history ({record.audit.length})</summary>
-   <ol>
-    {record.audit.map((a,i)=><li key={i}>{day(a.at)} · {a.action.replaceAll('-',' ')} · {a.by}{a.details?' — '+a.details:''}</li>)}
-   </ol>
-  </details>
  </div>;
 }

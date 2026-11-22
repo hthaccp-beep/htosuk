@@ -7,7 +7,7 @@ import type { OrderRecord } from '../../types';
 import {EmailRouting,useOrderSend} from './OrderSendWorkflow';
 import type {OrderEmailRoute} from '../../shared/order-email-route';
 import { canEditOutgoing } from './orderModel';
-import { emailState } from './communicationState';
+import { emailActionPresentation, emailState } from './communicationState';
 import { Button,Modal,Tag,useAction,shortId } from './ui';
 
 export function EmailStatus({order}:{order:OrderRecord}){const status=emailState(order);return <span title={status.detail}><Tag tone={status.tone}>{status.label}</Tag></span>;}
@@ -17,7 +17,7 @@ export function OrderEmail({order,review=false}:{order:OrderRecord;review?:boole
   useOrderDataRequest(open&&allowed?order.supplierId:'');
   useEffect(()=>{if(!open||!allowed)return;let cancelled=false;setRoute(null);setLoading(true);action.setError('');email.preview(order.branchId,order.supplierId).then(next=>{if(!cancelled)setRoute(next);}).catch(e=>{if(!cancelled)action.setError(e.message);}).finally(()=>{if(!cancelled)setLoading(false);});return()=>{cancelled=true;};},[open,allowed,order.branchId,order.supplierId,email]);
   const supplier=store.suppliers.find(s=>s.id===order.supplierId),branch=store.branches.find(b=>b.id===order.branchId);
-  const state=emailState(order);
+  const state=emailState(order),copy=emailActionPresentation(order);
   const send=()=>action.run(async()=>{
     if(!allowed)throw new Error('You cannot send email for this order.');
     if(!navigator.onLine)throw new Error('Reconnect before sending.');
@@ -26,7 +26,7 @@ export function OrderEmail({order,review=false}:{order:OrderRecord;review?:boole
     setOpen(false);
   },'Mail server accepted the email and PDF.');
   if(!allowed)return null;
-  return <><Button variant="quiet" onClick={()=>setOpen(true)}><Mail size={15}/>Send email</Button>{!open&&action.feedback}{open&&<Modal title="Review order email" onClose={()=>{if(!action.busy)setOpen(false);}}><div className="h-notice"><EmailStatus order={order}/><p>{state.detail}</p></div>{route?<EmailRouting route={route}/>:loading?<p role="status">Checking saved recipients…</p>:<p>Check the branch email settings before trying again.</p>}{action.feedback}<div className="h-dialog-foot"><Button variant="secondary" disabled={action.busy} onClick={()=>setOpen(false)}>Cancel</Button><Button busy={action.busy} disabled={!route?.ready} onClick={send}>Confirm & send email</Button></div></Modal>}</>;
+  return <><Button variant="quiet" className="h-email-retry-btn" onClick={()=>setOpen(true)}><Mail size={14}/>{copy.buttonLabel}</Button>{!open&&action.feedback}{open&&<Modal title={copy.modalTitle} onClose={()=>{if(!action.busy)setOpen(false);}}><div className="h-notice"><EmailStatus order={order}/><p>{state.detail}</p>{order.emailError&&order.emailError!==state.detail&&<p className="h-muted">Last error: {order.emailError}</p>}{(order.emailRetryCount||0)>0&&<small>Previous attempts: {order.emailRetryCount}</small>}</div>{route?<EmailRouting route={route}/>:loading?<p role="status">Checking saved recipients…</p>:<p>Check the branch email settings before trying again.</p>}{action.feedback}<div className="h-dialog-foot"><Button variant="secondary" disabled={action.busy} onClick={()=>setOpen(false)}>Cancel</Button><Button busy={action.busy} disabled={!route?.ready} onClick={send}>{copy.confirmLabel}</Button></div></Modal>}</>;
 }
 export function OrderDocument({order,mode='ORDER',onClose}:{order:OrderRecord;mode?:'ORDER'|'DELIVERY'|'CHECKLIST';onClose:()=>void}){
   const store=useAppStore(),[url,setUrl]=useState(''),[error,setError]=useState('');
