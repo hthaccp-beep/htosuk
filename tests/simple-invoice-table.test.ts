@@ -229,7 +229,7 @@ test('computeClaimSummaryMetrics summarizes estimated and confirmed claim balanc
  assert.equal(confirmed.lineBreakdown[1].openPence,0);
 });
 
-import {formatInvoiceWorkspaceTitle,formatShortOrderRef,summarizeInvoiceChecklist} from './simple-invoice-table.ts';
+import {formatInvoiceWorkspaceTitle,formatShortOrderRef,formatSupplierItemCode,formatSupplierOptionLabel,summarizeInvoiceChecklist} from './simple-invoice-table.ts';
 
 test('formatInvoiceWorkspaceTitle hides raw UUIDs behind human-readable titles and short refs',()=>{
  const uuid='62de9b4d-00a1-4b00-a1bd-b361d09758b3';
@@ -302,4 +302,26 @@ test('summarizeInvoiceChecklist groups approval checks into 3 clear steps and pr
  assert.equal(readyList.nextTarget,'SIGNOFF');
  assert.ok(readyList.nextHint.includes('ready to approve'));
 });
+
+test('supplierOptions hide internal UUIDs and £0.00 unpriced placeholders and sort alphabetically by name',()=>{
+ const base=extractionCase();
+ const mixedCatalog:Product[]=[
+  {id:'0d0aca60-3058-438e-a153-46fe26be8c1b',itemCode:'',name:'Ginger',categoryId:'c1',supplierId:'sample-foods',displayOrder:1,allowedBranchIds:[],active:true,casePrice:0,caseUnitName:'Unit'},
+  {id:'001789b5-2a73-4060-b6be-4f2613b33fba',itemCode:'001789b5-2a73-4060-b6be-4f2613b33fba',name:'Onion',categoryId:'c1',supplierId:'sample-foods',displayOrder:2,allowedBranchIds:[],active:true,casePrice:0,caseUnitName:'Unit'},
+  {id:'p-carrot',itemCode:'',name:'Carrot (BIG)',categoryId:'c1',supplierId:'sample-foods',displayOrder:3,allowedBranchIds:[],active:true,caseUnitName:'Unit'},
+  {id:'p-rice',itemCode:'R001',name:'Sample rice',categoryId:'c1',supplierId:'sample-foods',displayOrder:4,allowedBranchIds:[],active:true,casePrice:18,caseUnitName:'bags'},
+ ];
+ const table=buildSimpleInvoiceTable(base,mixedCatalog);
+ assert.deepEqual(table.supplierOptions.map(o=>o.name),['Carrot (BIG)','Ginger','Onion','Sample rice']);
+ assert.deepEqual(table.supplierOptions.map(formatSupplierOptionLabel),[
+  'Carrot (BIG)',
+  'Ginger',
+  'Onion',
+  'Sample rice · R001 (£18.00)',
+ ]);
+ assert.equal(formatSupplierItemCode('0d0aca60-3058-438e-a153-46fe26be8c1b'),'');
+ assert.equal(formatSupplierItemCode('R001'),'R001');
+ assert.equal(formatSupplierOptionLabel({name:'Jiyu Chicken Yakitori',code:'Q0289',price:0}),'Jiyu Chicken Yakitori · Q0289');
+});
+
 

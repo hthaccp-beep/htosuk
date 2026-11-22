@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {buildSimpleInvoiceTable,computeClaimSummaryMetrics,computeTableTotalsCheck,formatInvoiceWorkspaceTitle,summarizeInvoiceChecklist,type ChecklistJumpTarget,type SimpleIssueTheme,type SimpleOrderedRow,type SimpleTableMark} from '../../shared/simple-invoice-table';
+import {buildSimpleInvoiceTable,computeClaimSummaryMetrics,computeTableTotalsCheck,formatInvoiceWorkspaceTitle,formatSupplierItemCode,formatSupplierOptionLabel,summarizeInvoiceChecklist,type ChecklistJumpTarget,type SimpleIssueTheme,type SimpleOrderedRow,type SimpleTableMark} from '../../shared/simple-invoice-table';
 import {caseStatusLabels,invoiceApprovalProblems,outstandingClaim,receiptStatusLabels,type InvoiceCase} from '../../shared/invoice-case';
 import {invoiceExtractionDraft} from '../../shared/invoice-extraction';
 import {invoiceRecordStatus} from '../../shared/invoice-review-status';
@@ -974,7 +974,7 @@ export function SimpleInvoiceTableWorkspace({
           ):visibleOrdered.map(r=>{
            const {rowClass,statusColor}=rowVisual(r);
            const billedDiff=r.receiveBilledQty!=null&&r.receiveQty!=null&&r.receiveBilledQty!==r.receiveQty;
-           const showCode=r.orderProductId&&r.orderProductId!=='—';
+           const displayCode=formatSupplierItemCode(r.orderProductId);
            const showInvoiceWording=r.nameDiffers||r.codeDiffers;
            const primaryQty=r.receiveBilledQty!=null
             ? `${r.receiveBilledQty} ${r.receiveUnit}`
@@ -988,7 +988,7 @@ export function SimpleInvoiceTableWorkspace({
               <div className="ic-clean-item-top">
                <span className="ic-clean-no">{r.orderNo}.</span>
                <strong>{r.orderProductName}</strong>
-               {showCode&&<span className="ic-clean-code">{r.orderProductId}</span>}
+               {displayCode&&<span className="ic-clean-code">{displayCode}</span>}
               </div>
               {showInvoiceWording&&(
                <div className="ic-clean-invoice-note">
@@ -1126,7 +1126,7 @@ export function SimpleInvoiceTableWorkspace({
                void handleConfirmExtraRow(u,pid?'SUPPLIER_ITEM':'RESET',pid||undefined);
               }}>
               <option value="">{u.savedDecision?'Reset extra review…':'Match supplier item…'}</option>
-              {model.supplierOptions.map(opt=><option key={opt.id} value={opt.id}>{opt.code} · {opt.name}{opt.price!=null?` (${money(opt.price)})`:''}</option>)}
+              {model.supplierOptions.map(opt=><option key={opt.id} value={opt.id}>{formatSupplierOptionLabel(opt)}</option>)}
              </select>
              <button
               type="button"

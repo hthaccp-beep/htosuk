@@ -229,7 +229,14 @@ export function buildSimpleInvoiceTable(record:InvoiceCase,catalogProducts:Produ
 
  const supplierOptions=catalogProducts
   .filter(p=>p.supplierId===record.supplierId&&p.active!==false)
-  .map(p=>({id:p.id,code:p.itemCode||p.id,name:p.name,price:p.casePrice??p.packPrice,unit:p.caseUnitName||p.packUnitName||'case'}));
+  .map(p=>({
+   id:p.id,
+   code:formatSupplierItemCode(p.itemCode),
+   name:p.name,
+   price:hasKnownAgreedPrice(p.casePrice)?p.casePrice:hasKnownAgreedPrice(p.packPrice)?p.packPrice:undefined,
+   unit:p.caseUnitName||p.packUnitName||'case',
+  }))
+  .sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
 
  const followCount=ordered.filter(r=>r.defaultMark==='FOLLOW').length+unmatched.filter(u=>u.defaultMark==='FOLLOW').length;
  const doneCount=ordered.filter(r=>r.defaultMark==='DONE').length+unmatched.filter(u=>u.defaultMark==='DONE').length;
@@ -369,10 +376,25 @@ export interface SimpleInvoiceChecklist {
  remainingCount:number;
 }
 
+const UUID_PATTERN=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function formatSupplierItemCode(code?:string):string {
+ const raw=String(code||'').trim();
+ if(!raw||raw==='—'||UUID_PATTERN.test(raw))return '';
+ return raw;
+}
+
+export function formatSupplierOptionLabel(opt:{code?:string;name:string;price?:number}):string {
+ const name=String(opt.name||'').trim();
+ const code=formatSupplierItemCode(opt.code);
+ const price=hasKnownAgreedPrice(opt.price)?` (£${opt.price.toFixed(2)})`:'';
+ return `${name}${code?` · ${code}`:''}${price}`;
+}
+
 export function formatShortOrderRef(orderId?:string):string {
  const raw=String(orderId||'').trim();
  if(!raw)return '';
- if(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)){
+ if(UUID_PATTERN.test(raw)){
   return '#'+raw.slice(0,8).toUpperCase();
  }
  return raw.length>18?'#'+raw.slice(0,14)+'…':raw;
